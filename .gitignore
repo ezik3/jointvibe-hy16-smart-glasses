@@ -1,0 +1,10 @@
+# Xcode user-specific state (never useful to share/version)
+xcuserdata/
+*.xcuserstate
+
+# Build products / derived data
+DerivedData/
+build/
+
+# macOS Finder metadata
+.DS_Store

@@ -1,0 +1,24 @@
+name: HY16Probe
+options:
+  bundleIdPrefix: com.hy16dev
+configs:
+  Debug: debug
+  Release: release
+targets:
+  HY16Probe:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: HY16Probe
+        excludes:
+          - Info.plist
+    settings:
+      base:
+        INFOPLIST_FILE: HY16Probe/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        PRODUCT_BUNDLE_IDENTIFIER: com.hy16dev.HY16Probe
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"

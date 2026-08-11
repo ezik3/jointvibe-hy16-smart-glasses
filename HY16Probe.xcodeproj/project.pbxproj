@@ -1,0 +1,311 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		482A862B2C76B18CCF0C5BBC /* BLEScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54B22CFF7D5FD3F0D0655BE7 /* BLEScanner.swift */; };
+		703F7B0275150BF9E0406302 /* HY16Protocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7EDB1901362EBEFF9FB87B8 /* HY16Protocol.swift */; };
+		71E49E4248014427DE67C102 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C8511FB6AEEB3AAA5AF968E /* ContentView.swift */; };
+		74598C5F7845178A82E89008 /* KnownUUIDs.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB509D2864AA4EFD8125A0F0 /* KnownUUIDs.swift */; };
+		93D3AEEEF6F705696BAE7A39 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA06D1DAAEB2E6B87B14CC6 /* Models.swift */; };
+		F8C55221940049671BBED664 /* HY16ProbeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251CB4D7A0F15F92519D03C /* HY16ProbeApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		2AA06D1DAAEB2E6B87B14CC6 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		54B22CFF7D5FD3F0D0655BE7 /* BLEScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEScanner.swift; sourceTree = "<group>"; };
+		6251CB4D7A0F15F92519D03C /* HY16ProbeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HY16ProbeApp.swift; sourceTree = "<group>"; };
+		8C8511FB6AEEB3AAA5AF968E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		91AE26D6629FF33FFA656D75 /* HY16Probe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HY16Probe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D7EDB1901362EBEFF9FB87B8 /* HY16Protocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HY16Protocol.swift; sourceTree = "<group>"; };
+		DB509D2864AA4EFD8125A0F0 /* KnownUUIDs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownUUIDs.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		31F6A5C785575B93C568129A /* HY16Probe */ = {
+			isa = PBXGroup;
+			children = (
+				54B22CFF7D5FD3F0D0655BE7 /* BLEScanner.swift */,
+				8C8511FB6AEEB3AAA5AF968E /* ContentView.swift */,
+				6251CB4D7A0F15F92519D03C /* HY16ProbeApp.swift */,
+				D7EDB1901362EBEFF9FB87B8 /* HY16Protocol.swift */,
+				DB509D2864AA4EFD8125A0F0 /* KnownUUIDs.swift */,
+				2AA06D1DAAEB2E6B87B14CC6 /* Models.swift */,
+			);
+			path = HY16Probe;
+			sourceTree = "<group>";
+		};
+		358E6BDF9268261CCEA10F42 = {
+			isa = PBXGroup;
+			children = (
+				31F6A5C785575B93C568129A /* HY16Probe */,
+				C3018C699CCE786AF20D39F8 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C3018C699CCE786AF20D39F8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				91AE26D6629FF33FFA656D75 /* HY16Probe.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7F23B3AA03D327C44A5D71BB /* HY16Probe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 04F803FFF4859C410764C0AE /* Build configuration list for PBXNativeTarget "HY16Probe" */;
+			buildPhases = (
+				8FEA2E3C0E58A355B6C25573 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = HY16Probe;
+			packageProductDependencies = (
+			);
+			productName = HY16Probe;
+			productReference = 91AE26D6629FF33FFA656D75 /* HY16Probe.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E4505E3769445BCE7CACCEE8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					7F23B3AA03D327C44A5D71BB = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 6F188847382642384455731E /* Build configuration list for PBXProject "HY16Probe" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 358E6BDF9268261CCEA10F42;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = C3018C699CCE786AF20D39F8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7F23B3AA03D327C44A5D71BB /* HY16Probe */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8FEA2E3C0E58A355B6C25573 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				482A862B2C76B18CCF0C5BBC /* BLEScanner.swift in Sources */,
+				71E49E4248014427DE67C102 /* ContentView.swift in Sources */,
+				F8C55221940049671BBED664 /* HY16ProbeApp.swift in Sources */,
+				703F7B0275150BF9E0406302 /* HY16Protocol.swift in Sources */,
+				74598C5F7845178A82E89008 /* KnownUUIDs.swift in Sources */,
+				93D3AEEEF6F705696BAE7A39 /* Models.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		13BCC67A9CAB6CAF08CD1818 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9HLXAJ3LPL;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = HY16Probe/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.hy16dev.HY16Probe;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		2B9F963DA9573117D1FAAD2B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		957D26A69998184AE6FC4ED8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		DDB62607BA4AB1E99EB49D35 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9HLXAJ3LPL;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = HY16Probe/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.hy16dev.HY16Probe;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		04F803FFF4859C410764C0AE /* Build configuration list for PBXNativeTarget "HY16Probe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				13BCC67A9CAB6CAF08CD1818 /* Debug */,
+				DDB62607BA4AB1E99EB49D35 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6F188847382642384455731E /* Build configuration list for PBXProject "HY16Probe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B9F963DA9573117D1FAAD2B /* Debug */,
+				957D26A69998184AE6FC4ED8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E4505E3769445BCE7CACCEE8 /* Project object */;
+}
