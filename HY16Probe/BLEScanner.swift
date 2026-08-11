@@ -13,19 +13,24 @@
 //    - CBPeripheral.discoverServices(nil)
 //    - CBPeripheral.discoverCharacteristics(nil, for:)
 //
-//  As of the approved "Take Photo" test plus Pass 1 of media import, this
-//  file writes EXACTLY TWO documented commands, both scoped to the
-//  verified physical HY-16 characteristics (HY16Protocol.swift), and
-//  subscribes to exactly ONE notify characteristic:
+//  As of the approved video-recording test, this file writes EXACTLY
+//  THREE documented commands, all scoped to the verified physical HY-16
+//  characteristics (HY16Protocol.swift), and subscribes to exactly ONE
+//  notify characteristic:
 //    - peripheral.setNotifyValue(true, for:) on the verified READ/NOTIFY
 //      characteristic only, so responses can be observed and logged.
 //    - peripheral.writeValue(...) from sendTakePhoto() - ONLY the
 //      documented 0x0D01 / value-8 (Take Photo) frame.
+//    - peripheral.writeValue(...) from sendVideoControl(start:) - ONLY
+//      the documented 0x0D01 / value-9 (start) or value-10 (stop) frame.
 //    - peripheral.writeValue(...) from sendWifiApControl(on:) - ONLY the
 //      documented 0x090B WiFi-AP-on/off frame.
 //  No other command, value, OTA, delete, or reset logic exists anywhere
-//  in this file. Sending only ever happens from an explicit user tap on
-//  a button (see ContentView.swift) - nothing here fires automatically.
+//  in this file. In particular: no 0x0908/0x090A (RTSP/video preview),
+//  no 0x0918-0x091B (WiFi P2P), no 0x091D/0x091E/0x0921/0x0922 (video
+//  duration/resolution config). Sending only ever happens from an
+//  explicit user tap on a button (see ContentView.swift) - nothing here
+//  fires automatically.
 //
 //  Pass 1 also adds a single read-only HTTP GET (fetchFileListRaw) to
 //  whatever URL the glasses themselves report via 0x090E, now extended
@@ -45,6 +50,16 @@
 //  is no PHAsset fetch/enumerate anywhere, so the existing photo library
 //  is never read.
 //
+//  The video pass adds exactly one more network method, downloadVideo(_:),
+//  parallel to (but not modifying) downloadPhoto(_:). It performs exactly
+//  one GET for exactly one file the user explicitly tapped, using the
+//  file's own "url" field verbatim (never a hardcoded path), writes the
+//  bytes to a local temp file, and hands it to AVPlayer for playback.
+//  Media type (photo vs video) is decided by file extension only
+//  (Models.swift: GlassFile.mediaKind), never by HTTP Content-Type - the
+//  physical HY-16 is confirmed to send "application/octet-stream" for a
+//  real MP4. No RTSP, no WiFi P2P, no video config commands anywhere.
+//
 //  Connection only ever happens when the user explicitly taps a device in
 //  the UI (see ContentView.swift). Nothing here auto-connects.
 //
@@ -53,6 +68,7 @@ import Foundation
 import CoreBluetooth
 import UIKit // UIImage only, for displaying a downloaded photo (Pass 2a). No Photos framework.
 import Photos // Add-only asset creation (Pass 2b) - only requestAuthorization(for: .addOnly) and PHAssetChangeRequest.creationRequestForAsset(from:) are used; no read access.
+import AVFoundation // AVPlayer/AVURLAsset only, for local MP4 playback (video pass). No recording/capture APIs used.
 
 final class BLEScanner: NSObject, ObservableObject {
 
@@ -95,6 +111,14 @@ final class BLEScanner: NSObject, ObservableObject {
     @Published var downloadedImage: UIImage?
     @Published var downloadedImageFile: GlassFile?
     @Published var downloadError: String?
+
+    // MARK: Single-video download/playback state - populated only by an
+    // explicit tap on one .mp4 file via downloadVideo(_:). No bulk
+    // download, no auto-download, no upload anywhere.
+
+    @Published var isDownloadingVideo: Bool = false
+    @Published var videoPlayer: AVPlayer?
+    @Published var downloadedVideoFile: GlassFile?
 
     // MARK: Save-to-Photos state (Pass 2b) - populated only by an explicit
     // tap on the "Save to Photos" button via savePhotoToLibrary(). Saves
@@ -159,11 +183,10 @@ final class BLEScanner: NSObject, ObservableObject {
         centralManager.cancelPeripheralConnection(peripheral)
     }
 
-    // MARK: Take Photo (the one approved command)
+    // MARK: Take Photo (0x0D01 / value 8 - documented, physically proven)
     //
     // Sends ONLY the documented 0x0D01 / value-8 (Take Photo) request to
-    // the verified write characteristic. This is the only method in this
-    // class that calls writeValue.
+    // the verified write characteristic.
 
     func sendTakePhoto() {
         guard let peripheral = activePeripheral, let writeChar = writeCharacteristic else {
@@ -177,6 +200,31 @@ final class BLEScanner: NSObject, ObservableObject {
         log("RAW TX: \(HY16Protocol.hexString(frame))")
         log("DECODED TX: 0x0D01 REQUEST seq=\(seq) — Device Control: Take Photo (value 8)")
         log("  write type: .withoutResponse (matches Hyper's real traffic - 11/11 captured writes to this handle were ATT \"Write Command\", never \"Write Request\")")
+
+        peripheral.writeValue(data, for: writeChar, type: .withoutResponse)
+        nextSequenceNumber = nextSequenceNumber &+ 1
+    }
+
+    // MARK: Start/Stop Video Recording (0x0D01 / values 9 and 10 - documented,
+    // same command family and frame shape as the already-proven Take Photo)
+    //
+    // Sends ONLY the documented 0x0D01 / value-9 (start) or value-10 (stop)
+    // request to the verified write characteristic. No other value, no
+    // resolution/duration config command, no RTSP/preview command.
+
+    func sendVideoControl(start: Bool) {
+        guard let peripheral = activePeripheral, let writeChar = writeCharacteristic else {
+            log("sendVideoControl() ABORTED - not connected or write characteristic not found yet")
+            return
+        }
+        let seq = nextSequenceNumber
+        let frame = HY16Protocol.buildVideoControlFrame(start: start, sequence: seq)
+        let data = Data(frame)
+
+        let valueDescription = start ? "Start Video Recording (value 9)" : "Stop Video Recording (value 10)"
+        log("RAW TX: \(HY16Protocol.hexString(frame))")
+        log("DECODED TX: 0x0D01 REQUEST seq=\(seq) — Device Control: \(valueDescription)")
+        log("  write type: .withoutResponse (same pattern as Take Photo, matches Hyper's real captured traffic for this handle)")
 
         peripheral.writeValue(data, for: writeChar, type: .withoutResponse)
         nextSequenceNumber = nextSequenceNumber &+ 1
@@ -331,6 +379,94 @@ final class BLEScanner: NSObject, ObservableObject {
                 self.log("Photo decoded successfully: \(file.name) (\(byteCount) bytes)")
                 self.downloadedImage = image
                 self.downloadedImageFile = file
+            }
+        }
+        task.resume()
+    }
+
+    // MARK: Single video download + local playback (one explicit-tap GET only)
+    //
+    // Builds the download URL the exact same way downloadPhoto(_:) does
+    // (fileListURLString's scheme/host/port + this file's own "url" field
+    // - never a hardcoded "/channel0/" or any other guessed path), does
+    // exactly one GET, requires HTTP 200. Content-Type is logged only,
+    // never gated on - the physical HY-16 is confirmed to send
+    // "application/octet-stream" for a real MP4, so Content-Type cannot
+    // be used to validate video content. The JSON-reported `size` is
+    // logged alongside the actual downloaded byte count but is NOT used
+    // to reject the download - a real physical test showed these can
+    // legitimately differ. On success, the bytes are written to a local
+    // temporary file (original filename, never re-encoded/modified) and
+    // handed to AVPlayer for in-app playback. No DELETE, no POST, no PUT,
+    // no upload, no bulk/automatic download anywhere in this method.
+
+    func downloadVideo(_ file: GlassFile) {
+        guard let baseString = fileListURLString,
+              let base = URL(string: baseString),
+              var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else {
+            log("downloadVideo() ABORTED - no known base URL yet")
+            return
+        }
+        components.path = file.url
+        components.query = nil
+        guard let url = components.url else {
+            log("downloadVideo() ABORTED - could not build URL for \(file.url)")
+            return
+        }
+
+        isDownloadingVideo = true
+        downloadError = nil
+        log("HTTP GET \(url.absoluteString)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 60 // videos are much larger than photos
+
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.isDownloadingVideo = false
+
+                if let error {
+                    self.log("Video GET failed: \(error.localizedDescription)")
+                    self.downloadError = error.localizedDescription
+                    return
+                }
+                let httpResponse = response as? HTTPURLResponse
+                let statusCode = httpResponse?.statusCode ?? -1
+                let contentType = httpResponse?.value(forHTTPHeaderField: "Content-Type") ?? "(none)"
+                let byteCount = data?.count ?? 0
+                self.log("Video HTTP response: status=\(statusCode) Content-Type=\(contentType) bytes=\(byteCount)")
+                self.log("  JSON-reported size=\(file.size) bytes, actual downloaded=\(byteCount) bytes (size mismatch is NOT treated as an error - logged for investigation only)")
+
+                guard statusCode == 200 else {
+                    self.log("Video download ABORTED - status was not 200")
+                    self.downloadError = "HTTP \(statusCode)"
+                    return
+                }
+                // Content-Type deliberately NOT gated on - confirmed the
+                // real device sends "application/octet-stream" for MP4s.
+
+                guard let data, !data.isEmpty else {
+                    self.log("Video download FAILED - no data received")
+                    self.downloadError = "No data received"
+                    return
+                }
+
+                let destinationURL = FileManager.default.temporaryDirectory.appendingPathComponent(file.name)
+                do {
+                    try data.write(to: destinationURL, options: .atomic)
+                    self.log("Wrote \(byteCount) bytes to local file: \(destinationURL.path)")
+                } catch {
+                    self.log("Video FAILED to write local file: \(error.localizedDescription)")
+                    self.downloadError = "Could not save video locally: \(error.localizedDescription)"
+                    return
+                }
+
+                let player = AVPlayer(url: destinationURL)
+                self.log("AVPlayer preparation: player created for local file \(destinationURL.lastPathComponent)")
+
+                self.videoPlayer = player
+                self.downloadedVideoFile = file
             }
         }
         task.resume()

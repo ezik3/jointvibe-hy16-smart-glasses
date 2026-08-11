@@ -60,4 +60,25 @@ struct GlassFile: Codable, Identifiable {
     let thumbnail: String
 
     var id: String { name }
+
+    /// Media type, determined from the file EXTENSION only (per the
+    /// physically-confirmed finding that the glasses report a real MP4
+    /// with Content-Type "application/octet-stream" - HTTP Content-Type
+    /// cannot be trusted as the type indicator, the extension can).
+    var mediaKind: GlassMediaKind {
+        switch (name as NSString).pathExtension.lowercased() {
+        case "jpg", "jpeg", "png", "heic":
+            return .photo
+        case "mp4", "mov", "m4v":
+            return .video
+        default:
+            return .unknown
+        }
+    }
+}
+
+enum GlassMediaKind {
+    case photo
+    case video
+    case unknown
 }

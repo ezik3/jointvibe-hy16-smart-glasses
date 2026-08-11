@@ -18,11 +18,13 @@
 //  physical HY-16 with PacketLogger (55/55 for the frame/CRC; the WiFi
 //  sequence separately, during a real photo-import session).
 //
-//  This file intentionally defines ONLY: take-photo (0x0D01/8) and
-//  WiFi AP on/off (0x090B). Values 9 (start video), 10 (stop video),
-//  11/12 (audio recording), WiFi P2P (0x0918-0x091B), video preview
-//  (0x0908/0x090A), and all OTA/delete/reset commands are NOT defined
-//  anywhere here.
+//  This file defines: take-photo (0x0D01/8), start/stop video recording
+//  (0x0D01/9 and 0x0D01/10 - same command family and frame shape as the
+//  already-proven take-photo, per protocol doc page 90 §14.1), and WiFi
+//  AP on/off (0x090B). Values 11/12 (audio recording), WiFi P2P
+//  (0x0918-0x091B), video preview/RTSP (0x0908/0x090A), video-duration/
+//  resolution config (0x091D/0x091E/0x0921/0x0922), and all OTA/delete/
+//  reset commands are NOT defined anywhere here.
 //
 
 import Foundation
@@ -48,9 +50,17 @@ enum HY16Protocol {
 
     static let cmdDeviceControl: UInt16 = 0x0D01
     static let deviceControlTakePhoto: UInt8 = 0x08
-    // Deliberately NOT defined: 9 (start video), 10 (stop video),
-    // 11 (start audio recording), 12 (stop audio recording), or any
-    // OTA (0x0B0x) / delete (0x0E02/0x0E03) command.
+    static let deviceControlStartVideo: UInt8 = 0x09
+    static let deviceControlStopVideo: UInt8 = 0x0A
+    // Deliberately NOT defined: 11 (start audio recording),
+    // 12 (stop audio recording), or any OTA (0x0B0x) / delete
+    // (0x0E02/0x0E03) command.
+
+    /// Convenience: build the documented start/stop video recording frame.
+    static func buildVideoControlFrame(start: Bool, sequence: UInt8) -> [UInt8] {
+        let value = start ? deviceControlStartVideo : deviceControlStopVideo
+        return buildFrame(cmdID: cmdDeviceControl, type: .request, sequence: sequence, payload: [value])
+    }
 
     // MARK: WiFi AP control (protocol doc page 53, section 10.11)
     // Payload: single byte, 0 = off, 1 = on. Response is an empty ack.

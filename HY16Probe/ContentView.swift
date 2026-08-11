@@ -9,6 +9,7 @@
 
 import SwiftUI
 import CoreBluetooth
+import AVKit // VideoPlayer only, for displaying a downloaded MP4. No capture/recording APIs used.
 
 private let byteCountFormatter: ByteCountFormatter = {
     let f = ByteCountFormatter()
@@ -128,6 +129,23 @@ struct DeviceDetailView: View {
                     Text("Sends only 0x0D01 value 8 (Take Photo), the documented Device Control command.")
                         .font(.caption2)
                         .foregroundColor(.secondary)
+
+                    HStack(spacing: 12) {
+                        Button(action: { scanner.sendVideoControl(start: true) }) {
+                            Text("Start Video")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button(action: { scanner.sendVideoControl(start: false) }) {
+                            Text("Stop Video")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    Text("Sends only 0x0D01 value 9 (start) or value 10 (stop) - Video Recording. Watch the Log below for the 0x0D02 status notify.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
             }
 
@@ -185,8 +203,16 @@ struct DeviceDetailView: View {
             if !scanner.fileList.isEmpty {
                 Section("Media Files (tap one to download, read-only GET)") {
                     ForEach(scanner.fileList) { file in
-                        Button(action: { scanner.downloadPhoto(file) }) {
+                        Button(action: {
+                            switch file.mediaKind {
+                            case .photo: scanner.downloadPhoto(file)
+                            case .video: scanner.downloadVideo(file)
+                            case .unknown: break
+                            }
+                        }) {
                             HStack {
+                                Image(systemName: file.mediaKind == .video ? "video.fill" : "photo.fill")
+                                    .foregroundColor(.secondary)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(file.name)
                                         .font(.subheadline)
@@ -196,21 +222,26 @@ struct DeviceDetailView: View {
                                         .foregroundColor(.secondary)
                                 }
                                 Spacer()
-                                if scanner.isDownloadingPhoto && scanner.downloadedImageFile?.id != file.id {
-                                    EmptyView()
-                                } else if scanner.downloadedImageFile?.id == file.id {
+                                if scanner.downloadedImageFile?.id == file.id || scanner.downloadedVideoFile?.id == file.id {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundColor(.green)
                                 }
                             }
                         }
-                        .disabled(scanner.isDownloadingPhoto)
+                        .disabled(scanner.isDownloadingPhoto || scanner.isDownloadingVideo || file.mediaKind == .unknown)
                     }
 
                     if scanner.isDownloadingPhoto {
                         HStack {
                             ProgressView()
-                            Text("Downloading…")
+                            Text("Downloading photo…")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    if scanner.isDownloadingVideo {
+                        HStack {
+                            ProgressView()
+                            Text("Downloading video…")
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -249,6 +280,17 @@ struct DeviceDetailView: View {
                                     .font(.caption)
                                     .foregroundColor(result.hasPrefix("Saved") ? .green : .red)
                             }
+                        }
+                    }
+
+                    if let player = scanner.videoPlayer {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(scanner.downloadedVideoFile?.name ?? "")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            VideoPlayer(player: player)
+                                .frame(height: 220)
+                                .cornerRadius(8)
                         }
                     }
                 }
