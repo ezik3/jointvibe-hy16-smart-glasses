@@ -20,11 +20,14 @@
 //
 //  This file defines: take-photo (0x0D01/8), start/stop video recording
 //  (0x0D01/9 and 0x0D01/10 - same command family and frame shape as the
-//  already-proven take-photo, per protocol doc page 90 §14.1), and WiFi
-//  AP on/off (0x090B). Values 11/12 (audio recording), WiFi P2P
-//  (0x0918-0x091B), video preview/RTSP (0x0908/0x090A), video-duration/
+//  already-proven take-photo, per protocol doc page 90 §14.1), WiFi
+//  AP on/off (0x090B), and Video Preview Control (0x090A/1 start,
+//  0x090A/0 stop - protocol doc §10.10). 0x0908 (Real-time Video API) is
+//  a DEV->APP notify only, decoded for logging in BLEScanner - no frame
+//  builder exists for it here because the app never sends it. Values
+//  11/12 (audio recording), WiFi P2P (0x0918-0x091B), video-duration/
 //  resolution config (0x091D/0x091E/0x0921/0x0922), and all OTA/delete/
-//  reset commands are NOT defined anywhere here.
+//  reset commands are still NOT defined anywhere here.
 //
 
 import Foundation
@@ -72,6 +75,20 @@ enum HY16Protocol {
     /// Convenience: build the documented WiFi-AP-on or WiFi-AP-off request.
     static func buildWifiApControlFrame(on: Bool, sequence: UInt8) -> [UInt8] {
         buildFrame(cmdID: cmdWifiApControl, type: .request, sequence: sequence, payload: [on ? 0x01 : 0x00])
+    }
+
+    // MARK: Video Preview Control (protocol doc §10.10, 0x090A)
+    // Sends ONLY the documented start(1)/stop(0) request. Per the doc, once
+    // the device opens preview it also sends 0x0908 (Real-time Video API) as
+    // an unsolicited NOTIFY carrying an address string - decoded and logged
+    // verbatim in BLEScanner, never guessed/hardcoded here or anywhere else.
+
+    static let cmdVideoPreviewControl: UInt16 = 0x090A
+    static let videoPreviewStop: UInt8 = 0x00
+    static let videoPreviewStart: UInt8 = 0x01
+
+    static func buildVideoPreviewControlFrame(start: Bool, sequence: UInt8) -> [UInt8] {
+        buildFrame(cmdID: cmdVideoPreviewControl, type: .request, sequence: sequence, payload: [start ? videoPreviewStart : videoPreviewStop])
     }
 
     // MARK: CRC16 (CRC-16/ARC — poly 0x8005 reflected, init 0x0000)
@@ -174,6 +191,8 @@ enum HY16Protocol {
         case 0x0D01: return "Device Control"
         case 0x0905: return "Pending File Count Update"
         case 0x0D02: return "Local Video Recording Status"
+        case 0x0908: return "Real-time Video API (RTSP address notify)"
+        case 0x090A: return "Video Preview Control"
         case 0x090B: return "WiFi AP Control"
         case 0x0917: return "Report AP MAC Address"
         case 0x0904: return "Report Connection Status"

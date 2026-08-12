@@ -109,6 +109,19 @@ struct DeviceRow: View {
 struct DeviceDetailView: View {
     @ObservedObject var scanner: BLEScanner
     let device: DiscoveredPeripheral
+    @StateObject private var livePreview: LivePreviewController
+
+    init(scanner: BLEScanner, device: DiscoveredPeripheral) {
+        self.scanner = scanner
+        self.device = device
+        // Routes LivePreviewController's log lines into the same diagnostic
+        // Log section BLEScanner already populates - no change to
+        // BLEScanner.swift needed since logLines is not private.
+        _livePreview = StateObject(wrappedValue: LivePreviewController(log: { message in
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            scanner.logLines.append("[\(timestamp)] \(message)")
+        }))
+    }
 
     var body: some View {
         List {
@@ -196,6 +209,62 @@ struct DeviceDetailView: View {
                         Text(raw)
                             .font(.system(size: 10, design: .monospaced))
                             .textSelection(.enabled)
+                    }
+                }
+            }
+
+            if scanner.canSendCommands {
+                Section("Live Preview Test (0x090A + RTSP - controlled proof-of-concept)") {
+                    HStack(spacing: 12) {
+                        Button(action: { scanner.sendVideoPreviewControl(start: true) }) {
+                            Text("Start Live Preview")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button(action: {
+                            scanner.sendVideoPreviewControl(start: false)
+                            livePreview.stop()
+                        }) {
+                            Text("Stop Live Preview")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    Text("Sends only 0x090A value 1 (start) or value 0 (stop) - Video Preview Control. When the device's real 0x0908 notify arrives, its address (never a hardcoded one) is opened with an RTSP player.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    if let address = scanner.previewAddress {
+                        LabeledContent("0x0908 address (ASCII)", value: address)
+                    }
+                    if let hex = scanner.previewAddressRawHex {
+                        Text("0x0908 raw payload (hex): \(hex)")
+                            .font(.system(size: 10, design: .monospaced))
+                            .textSelection(.enabled)
+                    }
+                    if scanner.isPreviewRequested && !scanner.previewResponseReceived {
+                        Text("Waiting for device response…")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("LIVE CAMERA PREVIEW")
+                            .font(.caption2.bold())
+                            .foregroundColor(.secondary)
+                        VLCPlayerView(controller: livePreview)
+                            .frame(height: 220)
+                            .background(Color.black)
+                            .cornerRadius(8)
+                        Text("Status: \(livePreview.status.label)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        if let url = livePreview.currentURLString {
+                            Text("Playing from: \(url)")
+                                .font(.system(size: 10, design: .monospaced))
+                                .textSelection(.enabled)
+                        }
                     }
                 }
             }
@@ -335,6 +404,14 @@ struct DeviceDetailView: View {
         }
         .onDisappear {
             scanner.disconnect()
+            livePreview.stop()
+        }
+        .onChange(of: scanner.previewAddress) { newAddress in
+            // Only open the player if we're mid a user-initiated "start"
+            // (isPreviewRequested) - never on stale leftover state, and
+            // never with anything but the address the device just reported.
+            guard scanner.isPreviewRequested, let newAddress else { return }
+            livePreview.start(urlString: newAddress)
         }
     }
 

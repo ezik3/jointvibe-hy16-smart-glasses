@@ -13,8 +13,8 @@
 //    - CBPeripheral.discoverServices(nil)
 //    - CBPeripheral.discoverCharacteristics(nil, for:)
 //
-//  As of the approved video-recording test, this file writes EXACTLY
-//  THREE documented commands, all scoped to the verified physical HY-16
+//  As of the approved live-preview test pass, this file writes EXACTLY
+//  FOUR documented commands, all scoped to the verified physical HY-16
 //  characteristics (HY16Protocol.swift), and subscribes to exactly ONE
 //  notify characteristic:
 //    - peripheral.setNotifyValue(true, for:) on the verified READ/NOTIFY
@@ -25,12 +25,22 @@
 //      the documented 0x0D01 / value-9 (start) or value-10 (stop) frame.
 //    - peripheral.writeValue(...) from sendWifiApControl(on:) - ONLY the
 //      documented 0x090B WiFi-AP-on/off frame.
+//    - peripheral.writeValue(...) from sendVideoPreviewControl(start:) -
+//      ONLY the documented 0x090A / value-1 (start) or value-0 (stop)
+//      Video Preview Control frame. This is the ONLY new command this
+//      pass adds. The device's 0x0908 response (Real-time Video API) is
+//      DEV->APP only - this file never sends it, only decodes and logs
+//      whatever address string the physical glasses report, verbatim,
+//      with no guessed/hardcoded RTSP URL or port anywhere.
 //  No other command, value, OTA, delete, or reset logic exists anywhere
-//  in this file. In particular: no 0x0908/0x090A (RTSP/video preview),
-//  no 0x0918-0x091B (WiFi P2P), no 0x091D/0x091E/0x0921/0x0922 (video
-//  duration/resolution config). Sending only ever happens from an
-//  explicit user tap on a button (see ContentView.swift) - nothing here
-//  fires automatically.
+//  in this file. In particular: no 0x0918-0x091B (WiFi P2P), no
+//  0x091D/0x091E/0x0921/0x0922 (video duration/resolution config), no
+//  RTSP client/player of any kind (no MobileVLCKit, no FFmpeg, no
+//  AVPlayer pointed at a network stream - the existing AVPlayer usage in
+//  this file is strictly for local downloaded-MP4-file playback, added
+//  in the prior pass, and is untouched here). Sending only ever happens
+//  from an explicit user tap on a button (see ContentView.swift) -
+//  nothing here fires automatically.
 //
 //  Pass 1 also adds a single read-only HTTP GET (fetchFileListRaw) to
 //  whatever URL the glasses themselves report via 0x090E, now extended
@@ -119,6 +129,18 @@ final class BLEScanner: NSObject, ObservableObject {
     @Published var isDownloadingVideo: Bool = false
     @Published var videoPlayer: AVPlayer?
     @Published var downloadedVideoFile: GlassFile?
+
+    // MARK: Live preview test state (0x090A/0x0908) - ANALYSIS TEST PASS.
+    // Populated only by explicit taps on "Start Live Preview"/"Stop Live
+    // Preview". previewAddress/previewAddressRawHex hold EXACTLY what the
+    // physical glasses reported via the 0x0908 notify, decoded verbatim -
+    // never a guessed or hardcoded rtsp:// URL. No RTSP client/player
+    // exists anywhere in this codebase yet.
+
+    @Published var isPreviewRequested: Bool = false
+    @Published var previewResponseReceived: Bool = false
+    @Published var previewAddress: String?
+    @Published var previewAddressRawHex: String?
 
     // MARK: Save-to-Photos state (Pass 2b) - populated only by an explicit
     // tap on the "Save to Photos" button via savePhotoToLibrary(). Saves
@@ -260,6 +282,42 @@ final class BLEScanner: NSObject, ObservableObject {
             wifiIP = nil
             fileListURLString = nil
             fileListRawResponse = nil
+        }
+    }
+
+    // MARK: Video Preview Control (0x090A - documented, approved TEST pass)
+    //
+    // Sends ONLY the documented 0x090A / value-1 (start) or value-0 (stop)
+    // Video Preview Control request to the verified write characteristic.
+    // Per the protocol doc + APP flow diagram, once the device opens
+    // preview it sends 0x0908 (Real-time Video API) as an unsolicited
+    // NOTIFY carrying an address string - decoded and logged verbatim in
+    // didUpdateValueFor(_:), never guessed or hardcoded here. No RTSP
+    // client/player is created anywhere - this method only sends the BLE
+    // control frame and clears/tracks state so the UI can show exactly
+    // what the physical device reported.
+
+    func sendVideoPreviewControl(start: Bool) {
+        guard let peripheral = activePeripheral, let writeChar = writeCharacteristic else {
+            log("sendVideoPreviewControl() ABORTED - not connected or write characteristic not found yet")
+            return
+        }
+        let seq = nextSequenceNumber
+        let frame = HY16Protocol.buildVideoPreviewControlFrame(start: start, sequence: seq)
+        let data = Data(frame)
+
+        let valueDescription = start ? "Start Video Preview (value 1)" : "Stop Video Preview (value 0)"
+        log("RAW TX: \(HY16Protocol.hexString(frame))")
+        log("DECODED TX: 0x090A REQUEST seq=\(seq) — Video Preview Control: \(valueDescription)")
+        log("  write type: .withoutResponse (same pattern as the other three proven commands on this handle)")
+
+        peripheral.writeValue(data, for: writeChar, type: .withoutResponse)
+        nextSequenceNumber = nextSequenceNumber &+ 1
+        isPreviewRequested = start
+        if start {
+            previewResponseReceived = false
+            previewAddress = nil
+            previewAddressRawHex = nil
         }
     }
 
@@ -736,6 +794,15 @@ extension BLEScanner: CBPeripheralDelegate {
         case 0x090E: // Report WiFi Operation API URL
             fileListURLString = HY16Protocol.asciiString(frame.payload)
             log("  -> file-operations API URL = \(fileListURLString ?? "")")
+        case 0x090A: // Video Preview Control response (ack)
+            previewResponseReceived = true
+            log("  -> Video Preview Control acknowledged by device")
+        case 0x0908: // Real-time Video API - address string, decoded verbatim, never guessed
+            let ascii = HY16Protocol.asciiString(frame.payload)
+            let hex = HY16Protocol.hexString(frame.payload)
+            previewAddress = ascii
+            previewAddressRawHex = hex
+            log("  -> LIVE PREVIEW ADDRESS reported by device (verbatim): ascii=\"\(ascii)\" hex=[\(hex)]")
         default:
             break
         }

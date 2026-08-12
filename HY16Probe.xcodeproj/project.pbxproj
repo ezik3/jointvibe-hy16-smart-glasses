@@ -12,6 +12,8 @@
 		71E49E4248014427DE67C102 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C8511FB6AEEB3AAA5AF968E /* ContentView.swift */; };
 		74598C5F7845178A82E89008 /* KnownUUIDs.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB509D2864AA4EFD8125A0F0 /* KnownUUIDs.swift */; };
 		93D3AEEEF6F705696BAE7A39 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA06D1DAAEB2E6B87B14CC6 /* Models.swift */; };
+		A905A2082C5EF259DF3B1036 /* LivePreviewPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFD74CFF8A2EAF26112CC8EA /* LivePreviewPlayer.swift */; };
+		AC6960CBD51F76110B0B581F /* VLCKit in Frameworks */ = {isa = PBXBuildFile; productRef = 97BDB8867775A01F72354F94 /* VLCKit */; };
 		F8C55221940049671BBED664 /* HY16ProbeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251CB4D7A0F15F92519D03C /* HY16ProbeApp.swift */; };
 /* End PBXBuildFile section */
 
@@ -21,9 +23,21 @@
 		6251CB4D7A0F15F92519D03C /* HY16ProbeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HY16ProbeApp.swift; sourceTree = "<group>"; };
 		8C8511FB6AEEB3AAA5AF968E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		91AE26D6629FF33FFA656D75 /* HY16Probe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HY16Probe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CFD74CFF8A2EAF26112CC8EA /* LivePreviewPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePreviewPlayer.swift; sourceTree = "<group>"; };
 		D7EDB1901362EBEFF9FB87B8 /* HY16Protocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HY16Protocol.swift; sourceTree = "<group>"; };
 		DB509D2864AA4EFD8125A0F0 /* KnownUUIDs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownUUIDs.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		610969BCB4D95FBDD85FD861 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AC6960CBD51F76110B0B581F /* VLCKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		31F6A5C785575B93C568129A /* HY16Probe */ = {
@@ -34,6 +48,7 @@
 				6251CB4D7A0F15F92519D03C /* HY16ProbeApp.swift */,
 				D7EDB1901362EBEFF9FB87B8 /* HY16Protocol.swift */,
 				DB509D2864AA4EFD8125A0F0 /* KnownUUIDs.swift */,
+				CFD74CFF8A2EAF26112CC8EA /* LivePreviewPlayer.swift */,
 				2AA06D1DAAEB2E6B87B14CC6 /* Models.swift */,
 			);
 			path = HY16Probe;
@@ -63,6 +78,7 @@
 			buildConfigurationList = 04F803FFF4859C410764C0AE /* Build configuration list for PBXNativeTarget "HY16Probe" */;
 			buildPhases = (
 				8FEA2E3C0E58A355B6C25573 /* Sources */,
+				610969BCB4D95FBDD85FD861 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -70,6 +86,7 @@
 			);
 			name = HY16Probe;
 			packageProductDependencies = (
+				97BDB8867775A01F72354F94 /* VLCKit */,
 			);
 			productName = HY16Probe;
 			productReference = 91AE26D6629FF33FFA656D75 /* HY16Probe.app */;
@@ -98,6 +115,9 @@
 			);
 			mainGroup = 358E6BDF9268261CCEA10F42;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				76DE4308DA1A2FFE8B60582A /* XCRemoteSwiftPackageReference "VLCKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C3018C699CCE786AF20D39F8 /* Products */;
 			projectDirPath = "";
@@ -118,6 +138,7 @@
 				F8C55221940049671BBED664 /* HY16ProbeApp.swift in Sources */,
 				703F7B0275150BF9E0406302 /* HY16Protocol.swift in Sources */,
 				74598C5F7845178A82E89008 /* KnownUUIDs.swift in Sources */,
+				A905A2082C5EF259DF3B1036 /* LivePreviewPlayer.swift in Sources */,
 				93D3AEEEF6F705696BAE7A39 /* Models.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -306,6 +327,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		76DE4308DA1A2FFE8B60582A /* XCRemoteSwiftPackageReference "VLCKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://code.videolan.org/videolan/VLCKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = "4.0.0-a23";
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		97BDB8867775A01F72354F94 /* VLCKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 76DE4308DA1A2FFE8B60582A /* XCRemoteSwiftPackageReference "VLCKit" */;
+			productName = VLCKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E4505E3769445BCE7CACCEE8 /* Project object */;
 }

@@ -4,6 +4,18 @@ options:
 configs:
   Debug: debug
   Release: release
+packages:
+  # Live-preview test pass ONLY dependency: VideoLAN's own official,
+  # checksum-pinned SPM distribution of VLCKit 4.0.0-a23 (alpha - tracks
+  # VLC core's rewritten clock architecture, which structurally removes
+  # the fixed-3-second video timestamp rejection this A/B test targets).
+  # Previously pinned to the third-party tylerjonesio/vlckit-spm @ 3.6.0
+  # wrapper; that stayed on VLC's unchanged 3.0.x clock code and did not
+  # fix the issue. AVPlayer/AVKit has no RTSP support on iOS, and
+  # FFmpegKit was retired in 2025 - see LivePreviewPlayer.swift.
+  VLCKit:
+    url: https://code.videolan.org/videolan/VLCKit.git
+    exactVersion: 4.0.0-a23
 targets:
   HY16Probe:
     type: application
@@ -13,6 +25,9 @@ targets:
       - path: HY16Probe
         excludes:
           - Info.plist
+    dependencies:
+      - package: VLCKit
+        product: VLCKit
     settings:
       base:
         INFOPLIST_FILE: HY16Probe/Info.plist
