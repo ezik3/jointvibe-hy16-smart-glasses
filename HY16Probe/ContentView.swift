@@ -163,6 +163,32 @@ struct DeviceDetailView: View {
             }
 
             if scanner.canSendCommands {
+                Section("TEST 0 - Get Supported Features (0x0005, v2.0.17 §1.5)") {
+                    Button(action: { scanner.sendGetSupportedFeatures() }) {
+                        Text("Get Supported Features")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Text("Read-only capability query - documented request/response, changes no device state. Voice/AI investigation TEST 0: determines whether this unit's firmware reports AI Dialogue and BLE Audio support before any audio code is written.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    if let hex = scanner.supportedFeaturesRawHex {
+                        Text("Raw response: [\(hex)]")
+                            .font(.system(size: 10, design: .monospaced))
+                            .textSelection(.enabled)
+                    }
+                    if let ai = scanner.supportsAIDialogue {
+                        LabeledContent("AI Dialogue (doc offset 12)", value: ai ? "Supported" : "Not supported")
+                    }
+                    if let ble = scanner.supportsBLEAudio {
+                        LabeledContent("BLE Audio (doc offset 14)", value: ble ? "Supported" : "Not supported")
+                    }
+                }
+            }
+
+            if scanner.canSendCommands {
                 Section("Media WiFi (Pass 1, v2.0.17 §10.11)") {
                     Button(action: { scanner.sendWifiApControl(on: !scanner.wifiApRequested) }) {
                         Text(scanner.wifiApRequested ? "Disable Media WiFi" : "Enable Media WiFi")

@@ -21,13 +21,17 @@
 //  This file defines: take-photo (0x0D01/8), start/stop video recording
 //  (0x0D01/9 and 0x0D01/10 - same command family and frame shape as the
 //  already-proven take-photo, per protocol doc page 90 §14.1), WiFi
-//  AP on/off (0x090B), and Video Preview Control (0x090A/1 start,
-//  0x090A/0 stop - protocol doc §10.10). 0x0908 (Real-time Video API) is
-//  a DEV->APP notify only, decoded for logging in BLEScanner - no frame
-//  builder exists for it here because the app never sends it. Values
-//  11/12 (audio recording), WiFi P2P (0x0918-0x091B), video-duration/
-//  resolution config (0x091D/0x091E/0x0921/0x0922), and all OTA/delete/
-//  reset commands are still NOT defined anywhere here.
+//  AP on/off (0x090B), Video Preview Control (0x090A/1 start, 0x090A/0
+//  stop - protocol doc §10.10), and Get Supported Features (0x0005,
+//  protocol doc §1.5 - TEST 0 for the voice/AI investigation, request
+//  only, empty payload; response decode lives in BLEScanner). 0x0908
+//  (Real-time Video API) is a DEV->APP notify only, decoded for logging
+//  in BLEScanner - no frame builder exists for it here because the app
+//  never sends it. Values 11/12 (audio recording), BLE Audio (0x0A02/
+//  0x0A03), AI Dialogue triggers (0x0805/0x0806), WiFi P2P (0x0918-
+//  0x091B), video-duration/resolution config (0x091D/0x091E/0x0921/
+//  0x0922), and all OTA/delete/reset commands are still NOT defined
+//  anywhere here.
 //
 
 import Foundation
@@ -75,6 +79,26 @@ enum HY16Protocol {
     /// Convenience: build the documented WiFi-AP-on or WiFi-AP-off request.
     static func buildWifiApControlFrame(on: Bool, sequence: UInt8) -> [UInt8] {
         buildFrame(cmdID: cmdWifiApControl, type: .request, sequence: sequence, payload: [on ? 0x01 : 0x00])
+    }
+
+    // MARK: Get Supported Features (protocol doc §1.5, 0x0005)
+    // APP->DEVICE request with an empty (0-length) payload, per the doc:
+    // "数据长度，0 表示无数据，暂时传0" (data length, 0 = no data). The
+    // response's documented "Offset(Bytes)" column (0/2/3/4/6/7/8...18) is
+    // relative to the START OF THE DATA SECTION (cmd_id+type+seq+len+
+    // payload) - the SAME frame this file's decodeFrame() already parses -
+    // not relative to the payload alone. Since decodeFrame() already
+    // strips the 6-byte cmd_id/type/seq/len header before exposing
+    // `payload`, doc offset 6 = payload[0], so every documented field
+    // offset must have 6 subtracted to index into DecodedFrame.payload.
+    // Decoding/logging of the response happens in BLEScanner - no
+    // response-side logic belongs in this frame-format file.
+
+    static let cmdGetSupportedFeatures: UInt16 = 0x0005
+
+    /// Convenience: build the documented "get supported features" request.
+    static func buildGetSupportedFeaturesFrame(sequence: UInt8) -> [UInt8] {
+        buildFrame(cmdID: cmdGetSupportedFeatures, type: .request, sequence: sequence, payload: [])
     }
 
     // MARK: Video Preview Control (protocol doc §10.10, 0x090A)
@@ -188,6 +212,7 @@ enum HY16Protocol {
 
     static func commandName(_ cmdID: UInt16) -> String {
         switch cmdID {
+        case 0x0005: return "Get Supported Features"
         case 0x0D01: return "Device Control"
         case 0x0905: return "Pending File Count Update"
         case 0x0D02: return "Local Video Recording Status"

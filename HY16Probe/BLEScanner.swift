@@ -13,10 +13,10 @@
 //    - CBPeripheral.discoverServices(nil)
 //    - CBPeripheral.discoverCharacteristics(nil, for:)
 //
-//  As of the approved live-preview test pass, this file writes EXACTLY
-//  FOUR documented commands, all scoped to the verified physical HY-16
-//  characteristics (HY16Protocol.swift), and subscribes to exactly ONE
-//  notify characteristic:
+//  As of the approved TEST 0 pass (voice/AI transport investigation),
+//  this file writes EXACTLY FIVE documented commands, all scoped to the
+//  verified physical HY-16 characteristics (HY16Protocol.swift), and
+//  subscribes to exactly ONE notify characteristic:
 //    - peripheral.setNotifyValue(true, for:) on the verified READ/NOTIFY
 //      characteristic only, so responses can be observed and logged.
 //    - peripheral.writeValue(...) from sendTakePhoto() - ONLY the
@@ -27,20 +27,30 @@
 //      documented 0x090B WiFi-AP-on/off frame.
 //    - peripheral.writeValue(...) from sendVideoPreviewControl(start:) -
 //      ONLY the documented 0x090A / value-1 (start) or value-0 (stop)
-//      Video Preview Control frame. This is the ONLY new command this
-//      pass adds. The device's 0x0908 response (Real-time Video API) is
-//      DEV->APP only - this file never sends it, only decodes and logs
-//      whatever address string the physical glasses report, verbatim,
-//      with no guessed/hardcoded RTSP URL or port anywhere.
+//      Video Preview Control frame. The device's 0x0908 response
+//      (Real-time Video API) is DEV->APP only - this file never sends
+//      it, only decodes and logs whatever address string the physical
+//      glasses report, verbatim, with no guessed/hardcoded RTSP URL or
+//      port anywhere.
+//    - peripheral.writeValue(...) from sendGetSupportedFeatures() - ONLY
+//      the documented 0x0005 request (empty payload). This is the ONLY
+//      new command this pass adds - a read-only capability query, sends
+//      no other command, changes no device state. Response decode logs
+//      every documented feature bit, particularly AI Dialogue (doc
+//      offset 12) and BLE Audio (doc offset 14) support, to determine
+//      the correct voice/AI transport architecture before any audio
+//      code is written.
 //  No other command, value, OTA, delete, or reset logic exists anywhere
-//  in this file. In particular: no 0x0918-0x091B (WiFi P2P), no
+//  in this file. In particular: no 0x0A02/0x0A03 (BLE Audio data), no
+//  0x0805/0x0806 (AI Dialogue triggers), no 0x0918-0x091B (WiFi P2P), no
 //  0x091D/0x091E/0x0921/0x0922 (video duration/resolution config), no
 //  RTSP client/player of any kind (no MobileVLCKit, no FFmpeg, no
 //  AVPlayer pointed at a network stream - the existing AVPlayer usage in
 //  this file is strictly for local downloaded-MP4-file playback, added
-//  in the prior pass, and is untouched here). Sending only ever happens
-//  from an explicit user tap on a button (see ContentView.swift) -
-//  nothing here fires automatically.
+//  in a prior pass, and is untouched here), no Speech framework, no
+//  AVSpeechSynthesizer, no Opus. Sending only ever happens from an
+//  explicit user tap on a button (see ContentView.swift) - nothing here
+//  fires automatically.
 //
 //  Pass 1 also adds a single read-only HTTP GET (fetchFileListRaw) to
 //  whatever URL the glasses themselves report via 0x090E, now extended
@@ -141,6 +151,15 @@ final class BLEScanner: NSObject, ObservableObject {
     @Published var previewResponseReceived: Bool = false
     @Published var previewAddress: String?
     @Published var previewAddressRawHex: String?
+
+    // MARK: Get Supported Features test state (0x0005) - TEST 0 for the
+    // voice/AI investigation. Populated only by an explicit tap on "Get
+    // Supported Features". Read-only capability query - sends no other
+    // command, changes no device state.
+
+    @Published var supportedFeaturesRawHex: String?
+    @Published var supportsAIDialogue: Bool?
+    @Published var supportsBLEAudio: Bool?
 
     // MARK: Save-to-Photos state (Pass 2b) - populated only by an explicit
     // tap on the "Save to Photos" button via savePhotoToLibrary(). Saves
@@ -319,6 +338,31 @@ final class BLEScanner: NSObject, ObservableObject {
             previewAddress = nil
             previewAddressRawHex = nil
         }
+    }
+
+    // MARK: Get Supported Features (0x0005 - TEST 0, approved investigation
+    // pass for the voice/AI transport question)
+    //
+    // Sends ONLY the documented 0x0005 request (empty payload, per the
+    // doc's "数据长度，0 表示无数据" - data length 0 = no data). Read-only
+    // capability query - changes no device state, sends no other command.
+    // Response decode/logging happens in didUpdateValueFor(_:) below.
+
+    func sendGetSupportedFeatures() {
+        guard let peripheral = activePeripheral, let writeChar = writeCharacteristic else {
+            log("sendGetSupportedFeatures() ABORTED - not connected or write characteristic not found yet")
+            return
+        }
+        let seq = nextSequenceNumber
+        let frame = HY16Protocol.buildGetSupportedFeaturesFrame(sequence: seq)
+        let data = Data(frame)
+
+        log("RAW TX: \(HY16Protocol.hexString(frame))")
+        log("DECODED TX: 0x0005 REQUEST seq=\(seq) — Get Supported Features")
+        log("  write type: .withoutResponse (same pattern as the other proven commands on this handle)")
+
+        peripheral.writeValue(data, for: writeChar, type: .withoutResponse)
+        nextSequenceNumber = nextSequenceNumber &+ 1
     }
 
     // MARK: File list (Pass 1 - read-only GET, raw text only, no parsing yet)
@@ -803,6 +847,41 @@ extension BLEScanner: CBPeripheralDelegate {
             previewAddress = ascii
             previewAddressRawHex = hex
             log("  -> LIVE PREVIEW ADDRESS reported by device (verbatim): ascii=\"\(ascii)\" hex=[\(hex)]")
+        case 0x0005: // Get Supported Features response (doc §1.5)
+            // Doc's documented "Offset(Bytes)" column is relative to the
+            // START OF THE DATA SECTION (cmd_id+type+seq+len+payload), not
+            // to the payload alone - decodeFrame() already strips that
+            // 6-byte header before exposing `payload`, so every documented
+            // field offset needs 6 subtracted to index into `payload`.
+            // Bounds-checked per field since older/different firmware
+            // could report a shorter payload than the full 13 fields.
+            supportedFeaturesRawHex = HY16Protocol.hexString(frame.payload)
+            log("  -> Get Supported Features RAW payload: [\(supportedFeaturesRawHex ?? "")] (\(frame.payload.count) bytes)")
+
+            func featureBit(docOffset: Int, name: String) -> Bool? {
+                let payloadIndex = docOffset - 6
+                guard payloadIndex >= 0, payloadIndex < frame.payload.count else {
+                    log("  -> \(name) (doc offset \(docOffset)): not present in this response (payload too short)")
+                    return nil
+                }
+                let supported = frame.payload[payloadIndex] == 1
+                log("  -> \(name) (doc offset \(docOffset), payload[\(payloadIndex)]=\(frame.payload[payloadIndex])): \(supported ? "SUPPORTED" : "not supported")")
+                return supported
+            }
+
+            _ = featureBit(docOffset: 6, name: "Noise reduction / 降噪")
+            _ = featureBit(docOffset: 7, name: "Wear detection switch / 佩戴检测开关")
+            _ = featureBit(docOffset: 8, name: "Game mode / 游戏模式")
+            _ = featureBit(docOffset: 9, name: "EQ audio effects / EQ音效")
+            _ = featureBit(docOffset: 10, name: "Button settings / 按键设置")
+            _ = featureBit(docOffset: 11, name: "Find device / 设备查找")
+            supportsAIDialogue = featureBit(docOffset: 12, name: "AI Dialogue / AI对话")
+            _ = featureBit(docOffset: 13, name: "WiFi glasses feature / WIFI眼镜功能")
+            supportsBLEAudio = featureBit(docOffset: 14, name: "BLE Audio / BLE音频")
+            _ = featureBit(docOffset: 15, name: "OTA upgrade / OTA升级")
+            _ = featureBit(docOffset: 16, name: "Device control / 设备控制")
+            _ = featureBit(docOffset: 17, name: "Local recording / 本地录音")
+            _ = featureBit(docOffset: 18, name: "Voice wake / 语音唤醒")
         default:
             break
         }
