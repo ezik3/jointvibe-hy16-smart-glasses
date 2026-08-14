@@ -189,6 +189,31 @@ struct DeviceDetailView: View {
             }
 
             if scanner.canSendCommands {
+                Section("TEST 1A - AI/BLE Audio Observation (pure observation, no commands sent)") {
+                    Text("This app sends NOTHING here - no 0x0A02, no 0x0805, no 0x0806, no microphone activation. It only observes and counts whatever the physical glasses choose to transmit on their own (button press or voice wake).")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    LabeledContent("AI Dialogue notifications", value: "\(scanner.aiDialogueTriggerCount)")
+                    LabeledContent("Last AI Dialogue state", value: scanner.lastAIDialogueState)
+                    LabeledContent("BLE Audio packets received", value: "\(scanner.bleAudioPacketCount)")
+                    LabeledContent("BLE Audio bytes received", value: "\(scanner.bleAudioByteCount)")
+                    if let len = scanner.lastBLEAudioPayloadLength {
+                        LabeledContent("Last BLE Audio payload length", value: "\(len) bytes")
+                    }
+
+                    Button(action: { scanner.resetTest1ACounters() }) {
+                        Text("Reset TEST 1A Counters")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    Text("Resets only these local counters - sends nothing to the HY-16.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            if scanner.canSendCommands {
                 Section("Media WiFi (Pass 1, v2.0.17 §10.11)") {
                     Button(action: { scanner.sendWifiApControl(on: !scanner.wifiApRequested) }) {
                         Text(scanner.wifiApRequested ? "Disable Media WiFi" : "Enable Media WiFi")

@@ -27,11 +27,16 @@
 //  only, empty payload; response decode lives in BLEScanner). 0x0908
 //  (Real-time Video API) is a DEV->APP notify only, decoded for logging
 //  in BLEScanner - no frame builder exists for it here because the app
-//  never sends it. Values 11/12 (audio recording), BLE Audio (0x0A02/
-//  0x0A03), AI Dialogue triggers (0x0805/0x0806), WiFi P2P (0x0918-
-//  0x091B), video-duration/resolution config (0x091D/0x091E/0x0921/
-//  0x0922), and all OTA/delete/reset commands are still NOT defined
-//  anywhere here.
+//  never sends it. As of TEST 1A (voice/AI investigation, pure
+//  observation), 0x0805 (AI Dialogue Trigger, doc §9.5) and 0x0A03 (BLE
+//  Audio Data, doc §11.3) are named here for commandName() logging only
+//  - like 0x0908, both are DEV->APP notify commands this app only
+//  observes; no frame builder exists for either because the app never
+//  sends them. Values 11/12 (audio recording), 0x0A02 (BLE Audio
+//  Control - would activate mic uplink), 0x0806 (AI Dialogue link
+//  establish), WiFi P2P (0x0918-0x091B), video-duration/resolution
+//  config (0x091D/0x091E/0x0921/0x0922), and all OTA/delete/reset
+//  commands are still NOT defined anywhere here.
 //
 
 import Foundation
@@ -213,6 +218,8 @@ enum HY16Protocol {
     static func commandName(_ cmdID: UInt16) -> String {
         switch cmdID {
         case 0x0005: return "Get Supported Features"
+        case 0x0805: return "AI Dialogue Trigger"
+        case 0x0A03: return "BLE Audio Data"
         case 0x0D01: return "Device Control"
         case 0x0905: return "Pending File Count Update"
         case 0x0D02: return "Local Video Recording Status"

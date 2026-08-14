@@ -33,24 +33,33 @@
 //      glasses report, verbatim, with no guessed/hardcoded RTSP URL or
 //      port anywhere.
 //    - peripheral.writeValue(...) from sendGetSupportedFeatures() - ONLY
-//      the documented 0x0005 request (empty payload). This is the ONLY
-//      new command this pass adds - a read-only capability query, sends
-//      no other command, changes no device state. Response decode logs
-//      every documented feature bit, particularly AI Dialogue (doc
-//      offset 12) and BLE Audio (doc offset 14) support, to determine
-//      the correct voice/AI transport architecture before any audio
-//      code is written.
+//      the documented 0x0005 request (empty payload). A read-only
+//      capability query, sends no other command, changes no device
+//      state. Response decode logs every documented feature bit,
+//      particularly AI Dialogue (doc offset 12) and BLE Audio (doc
+//      offset 14) support.
+//  TEST 1A (voice/AI transport investigation, pure observation pass)
+//  adds ZERO new send methods - writeValue call sites remain exactly
+//  the five above. It only teaches didUpdateValueFor(_:) to decode and
+//  log two additional DEV->APP notify command IDs the physical glasses
+//  already emit on their own when AI Dialogue is triggered FROM THE
+//  GLASSES (button or voice wake) - 0x0805 (AI Dialogue trigger) and
+//  0x0A03 (BLE Audio data). Nothing here sends 0x0A02, 0x0805, or
+//  0x0806, and nothing here activates microphone uplink from the app -
+//  this file only observes and counts whatever the device already
+//  chooses to transmit.
 //  No other command, value, OTA, delete, or reset logic exists anywhere
-//  in this file. In particular: no 0x0A02/0x0A03 (BLE Audio data), no
-//  0x0805/0x0806 (AI Dialogue triggers), no 0x0918-0x091B (WiFi P2P), no
-//  0x091D/0x091E/0x0921/0x0922 (video duration/resolution config), no
-//  RTSP client/player of any kind (no MobileVLCKit, no FFmpeg, no
-//  AVPlayer pointed at a network stream - the existing AVPlayer usage in
-//  this file is strictly for local downloaded-MP4-file playback, added
-//  in a prior pass, and is untouched here), no Speech framework, no
-//  AVSpeechSynthesizer, no Opus. Sending only ever happens from an
-//  explicit user tap on a button (see ContentView.swift) - nothing here
-//  fires automatically.
+//  in this file. In particular: no 0x0A02 (BLE Audio Control - would
+//  activate mic uplink), no 0x0806 (AI Dialogue link establish), no
+//  0x0918-0x091B (WiFi P2P), no 0x091D/0x091E/0x0921/0x0922 (video
+//  duration/resolution config), no RTSP client/player of any kind (no
+//  MobileVLCKit, no FFmpeg, no AVPlayer pointed at a network stream -
+//  the existing AVPlayer usage in this file is strictly for local
+//  downloaded-MP4-file playback, added in a prior pass, and is
+//  untouched here), no Opus decode, no PCM conversion, no audio
+//  playback, no Speech framework, no AVSpeechSynthesizer. Sending only
+//  ever happens from an explicit user tap on a button (see
+//  ContentView.swift) - nothing here fires automatically.
 //
 //  Pass 1 also adds a single read-only HTTP GET (fetchFileListRaw) to
 //  whatever URL the glasses themselves report via 0x090E, now extended
@@ -160,6 +169,19 @@ final class BLEScanner: NSObject, ObservableObject {
     @Published var supportedFeaturesRawHex: String?
     @Published var supportsAIDialogue: Bool?
     @Published var supportsBLEAudio: Bool?
+
+    // MARK: TEST 1A state (0x0805/0x0A03) - PURE OBSERVATION. Populated
+    // only by real notify frames the glasses choose to emit on their own
+    // (triggered from the physical device, not by this app). Nothing in
+    // this class sends 0x0A02/0x0805/0x0806 or activates microphone
+    // uplink. resetTest1ACounters() below only clears these local
+    // counters - it sends nothing to the device.
+
+    @Published var aiDialogueTriggerCount: Int = 0
+    @Published var lastAIDialogueState: String = "Not observed"
+    @Published var bleAudioPacketCount: Int = 0
+    @Published var bleAudioByteCount: Int = 0
+    @Published var lastBLEAudioPayloadLength: Int?
 
     // MARK: Save-to-Photos state (Pass 2b) - populated only by an explicit
     // tap on the "Save to Photos" button via savePhotoToLibrary(). Saves
@@ -363,6 +385,19 @@ final class BLEScanner: NSObject, ObservableObject {
 
         peripheral.writeValue(data, for: writeChar, type: .withoutResponse)
         nextSequenceNumber = nextSequenceNumber &+ 1
+    }
+
+    // MARK: TEST 1A - reset local diagnostic counters ONLY (0x0805/0x0A03
+    // pure observation pass). Sends NOTHING to the device - this is a
+    // local UI/state reset, not a BLE command.
+
+    func resetTest1ACounters() {
+        aiDialogueTriggerCount = 0
+        lastAIDialogueState = "Not observed"
+        bleAudioPacketCount = 0
+        bleAudioByteCount = 0
+        lastBLEAudioPayloadLength = nil
+        log("TEST 1A: local diagnostic counters reset (nothing sent to device)")
     }
 
     // MARK: File list (Pass 1 - read-only GET, raw text only, no parsing yet)
@@ -882,6 +917,46 @@ extension BLEScanner: CBPeripheralDelegate {
             _ = featureBit(docOffset: 16, name: "Device control / 设备控制")
             _ = featureBit(docOffset: 17, name: "Local recording / 本地录音")
             _ = featureBit(docOffset: 18, name: "Voice wake / 语音唤醒")
+        case 0x0805: // AI Dialogue Trigger (doc §9.5) - DEVICE->APP NOTIFY.
+            // TEST 1A PURE OBSERVATION - this app never sends 0x0805.
+            // Payload (doc offset 6): 0x01=start, 0x00=stop.
+            aiDialogueTriggerCount += 1
+            let stateDescription: String
+            if frame.payload.first == 0x01 {
+                stateDescription = "START"
+            } else if frame.payload.first == 0x00 {
+                stateDescription = "STOP"
+            } else {
+                stateDescription = "UNKNOWN(\(HY16Protocol.hexString(frame.payload)))"
+            }
+            lastAIDialogueState = stateDescription
+            log("========================================")
+            log("AI DIALOGUE TRIGGER RECEIVED")
+            log("0x0805 = \(stateDescription)")
+            log("cumulative 0x0805 notifications received: \(aiDialogueTriggerCount)")
+            log("========================================")
+        case 0x0A03: // BLE Audio Data (doc §11.3) - DEVICE->APP here.
+            // TEST 1A PURE OBSERVATION - this app never sends 0x0A02,
+            // 0x0A03, or 0x0806, and never activates microphone uplink.
+            // No Opus decode, no PCM, no playback - count/log only. Doc
+            // offset 6 (payload[0]) is a flow-control/send-interval byte,
+            // not audio data; the rest is the documented Opus payload
+            // (always a multiple of 40 bytes per the spec).
+            bleAudioPacketCount += 1
+            let audioDataByteCount = max(0, frame.payload.count - 1)
+            bleAudioByteCount += audioDataByteCount
+            lastBLEAudioPayloadLength = frame.payload.count
+
+            if bleAudioPacketCount <= 5 {
+                // Full detail for the first several packets.
+                let flowControlByte = frame.payload.first.map { "\($0)" } ?? "(empty payload)"
+                log("BLE AUDIO DATA packet #\(bleAudioPacketCount): decoded payload length=\(frame.payload.count) bytes, flow-control byte=\(flowControlByte), audio-data bytes=\(audioDataByteCount), cumulative audio-data bytes=\(bleAudioByteCount)")
+            } else if bleAudioPacketCount % 20 == 0 {
+                // Periodic summary thereafter, so rapid packet arrival
+                // can't flood the log/UI - still proves continuous
+                // traffic via the running counters.
+                log("BLE AUDIO DATA summary: \(bleAudioPacketCount) packets received so far, \(bleAudioByteCount) cumulative audio-data bytes")
+            }
         default:
             break
         }
