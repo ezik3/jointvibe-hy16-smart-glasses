@@ -16,6 +16,19 @@ packages:
   VLCKit:
     url: https://code.videolan.org/videolan/VLCKit.git
     exactVersion: 4.0.0-a23
+  # Audio-capture forensic test ONLY dependency: alta/swift-opus, pinned
+  # to the exact HEAD commit (2024-06-16), not the stale 0.0.2 tag
+  # (2022-02, 25 PRs behind). Builds real libopus C source via SPM
+  # (no precompiled binary, no device/simulator slice ambiguity).
+  # Chosen over the manufacturer's own bundled libopus.a after read-only
+  # forensic inspection: Opus decode is fully standardized (RFC 6716),
+  # so there is no decode-confidence difference between decoders: this
+  # package is cleanly SPM-packaged (matches the VLCKit precedent) and
+  # has no licensing ambiguity, unlike the manufacturer SDK bundle.
+  # See AudioCapture.swift.
+  SwiftOpus:
+    url: https://github.com/alta/swift-opus
+    revision: 6f3cb6bd3ffed1fe5f06d00a962d5c191a50daf8
 targets:
   HY16Probe:
     type: application
@@ -28,6 +41,8 @@ targets:
     dependencies:
       - package: VLCKit
         product: VLCKit
+      - package: SwiftOpus
+        product: Opus
     settings:
       base:
         INFOPLIST_FILE: HY16Probe/Info.plist

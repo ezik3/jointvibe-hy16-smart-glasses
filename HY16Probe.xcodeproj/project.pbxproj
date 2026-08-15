@@ -7,10 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		06009B0025ECF78878A224F7 /* AudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70483EC60AC060D02A89372B /* AudioCapture.swift */; };
 		482A862B2C76B18CCF0C5BBC /* BLEScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54B22CFF7D5FD3F0D0655BE7 /* BLEScanner.swift */; };
 		703F7B0275150BF9E0406302 /* HY16Protocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7EDB1901362EBEFF9FB87B8 /* HY16Protocol.swift */; };
 		71E49E4248014427DE67C102 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C8511FB6AEEB3AAA5AF968E /* ContentView.swift */; };
 		74598C5F7845178A82E89008 /* KnownUUIDs.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB509D2864AA4EFD8125A0F0 /* KnownUUIDs.swift */; };
+		7993246D132B2F4B7B57B3FF /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 7768A7056EF590F02EE8C188 /* Opus */; };
 		93D3AEEEF6F705696BAE7A39 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA06D1DAAEB2E6B87B14CC6 /* Models.swift */; };
 		A905A2082C5EF259DF3B1036 /* LivePreviewPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFD74CFF8A2EAF26112CC8EA /* LivePreviewPlayer.swift */; };
 		AC6960CBD51F76110B0B581F /* VLCKit in Frameworks */ = {isa = PBXBuildFile; productRef = 97BDB8867775A01F72354F94 /* VLCKit */; };
@@ -21,6 +23,7 @@
 		2AA06D1DAAEB2E6B87B14CC6 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		54B22CFF7D5FD3F0D0655BE7 /* BLEScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEScanner.swift; sourceTree = "<group>"; };
 		6251CB4D7A0F15F92519D03C /* HY16ProbeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HY16ProbeApp.swift; sourceTree = "<group>"; };
+		70483EC60AC060D02A89372B /* AudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCapture.swift; sourceTree = "<group>"; };
 		8C8511FB6AEEB3AAA5AF968E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		91AE26D6629FF33FFA656D75 /* HY16Probe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HY16Probe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CFD74CFF8A2EAF26112CC8EA /* LivePreviewPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePreviewPlayer.swift; sourceTree = "<group>"; };
@@ -34,6 +37,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AC6960CBD51F76110B0B581F /* VLCKit in Frameworks */,
+				7993246D132B2F4B7B57B3FF /* Opus in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -43,6 +47,7 @@
 		31F6A5C785575B93C568129A /* HY16Probe */ = {
 			isa = PBXGroup;
 			children = (
+				70483EC60AC060D02A89372B /* AudioCapture.swift */,
 				54B22CFF7D5FD3F0D0655BE7 /* BLEScanner.swift */,
 				8C8511FB6AEEB3AAA5AF968E /* ContentView.swift */,
 				6251CB4D7A0F15F92519D03C /* HY16ProbeApp.swift */,
@@ -87,6 +92,7 @@
 			name = HY16Probe;
 			packageProductDependencies = (
 				97BDB8867775A01F72354F94 /* VLCKit */,
+				7768A7056EF590F02EE8C188 /* Opus */,
 			);
 			productName = HY16Probe;
 			productReference = 91AE26D6629FF33FFA656D75 /* HY16Probe.app */;
@@ -116,6 +122,7 @@
 			mainGroup = 358E6BDF9268261CCEA10F42;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				920A8C3924737F5455760339 /* XCRemoteSwiftPackageReference "swift-opus" */,
 				76DE4308DA1A2FFE8B60582A /* XCRemoteSwiftPackageReference "VLCKit" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -133,6 +140,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				06009B0025ECF78878A224F7 /* AudioCapture.swift in Sources */,
 				482A862B2C76B18CCF0C5BBC /* BLEScanner.swift in Sources */,
 				71E49E4248014427DE67C102 /* ContentView.swift in Sources */,
 				F8C55221940049671BBED664 /* HY16ProbeApp.swift in Sources */,
@@ -337,9 +345,22 @@
 				version = "4.0.0-a23";
 			};
 		};
+		920A8C3924737F5455760339 /* XCRemoteSwiftPackageReference "swift-opus" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/alta/swift-opus";
+			requirement = {
+				kind = revision;
+				revision = 6f3cb6bd3ffed1fe5f06d00a962d5c191a50daf8;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		7768A7056EF590F02EE8C188 /* Opus */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 920A8C3924737F5455760339 /* XCRemoteSwiftPackageReference "swift-opus" */;
+			productName = Opus;
+		};
 		97BDB8867775A01F72354F94 /* VLCKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 76DE4308DA1A2FFE8B60582A /* XCRemoteSwiftPackageReference "VLCKit" */;

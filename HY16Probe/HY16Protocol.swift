@@ -32,11 +32,17 @@
 //  Audio Data, doc §11.3) are named here for commandName() logging only
 //  - like 0x0908, both are DEV->APP notify commands this app only
 //  observes; no frame builder exists for either because the app never
-//  sends them. Values 11/12 (audio recording), 0x0A02 (BLE Audio
-//  Control - would activate mic uplink), 0x0806 (AI Dialogue link
-//  establish), WiFi P2P (0x0918-0x091B), video-duration/resolution
-//  config (0x091D/0x091E/0x0921/0x0922), and all OTA/delete/reset
-//  commands are still NOT defined anywhere here.
+//  sends them. As of TEST 1B (manual-only), BLE Audio Control (0x0A02,
+//  doc §11.2) is defined - APP->DEVICE, 1-byte payload (0=off, 1=8kHz
+//  mic uplink, 2=16kHz), empty-payload ack. TEST 1B only ever sends
+//  0x0A02 value 0 or 1, and only from an explicit user tap in
+//  BLEScanner - never automatically, never in response to receiving
+//  0x0805. Values 11/12 (audio recording), 0x0806 (AI Dialogue link
+//  establish - still NOT defined, TEST 1B deliberately does not send
+//  it), 0x0A01 (Get Call Status - still NOT defined), WiFi P2P
+//  (0x0918-0x091B), video-duration/resolution config (0x091D/0x091E/
+//  0x0921/0x0922), and all OTA/delete/reset commands are still NOT
+//  defined anywhere here.
 //
 
 import Foundation
@@ -104,6 +110,25 @@ enum HY16Protocol {
     /// Convenience: build the documented "get supported features" request.
     static func buildGetSupportedFeaturesFrame(sequence: UInt8) -> [UInt8] {
         buildFrame(cmdID: cmdGetSupportedFeatures, type: .request, sequence: sequence, payload: [])
+    }
+
+    // MARK: BLE Audio Control (protocol doc §11.2, 0x0A02) - TEST 1B
+    // APP->DEVICE request, 1-byte payload, empty-payload ack response -
+    // identical shape to the already-proven 0x090B WiFi AP Control. Per
+    // the doc: 0=off, 1="AI dialogue (1ch mic uplink) 8kHz",
+    // 2="...16kHz". TEST 1B uses ONLY 0 (off) and 1 (8kHz start) - never
+    // sent automatically, only from an explicit user tap (BLEScanner).
+    // No frame builder exists anywhere in this file for 0x0806 or 0x0A01
+    // - TEST 1B deliberately does not send either.
+
+    static let cmdBLEAudioControl: UInt16 = 0x0A02
+    static let bleAudioOff: UInt8 = 0x00
+    static let bleAudioAIDialogue8kHz: UInt8 = 0x01
+    static let bleAudioAIDialogue16kHz: UInt8 = 0x02
+
+    /// Convenience: build the documented BLE Audio Control request.
+    static func buildBLEAudioControlFrame(value: UInt8, sequence: UInt8) -> [UInt8] {
+        buildFrame(cmdID: cmdBLEAudioControl, type: .request, sequence: sequence, payload: [value])
     }
 
     // MARK: Video Preview Control (protocol doc §10.10, 0x090A)
@@ -219,6 +244,7 @@ enum HY16Protocol {
         switch cmdID {
         case 0x0005: return "Get Supported Features"
         case 0x0805: return "AI Dialogue Trigger"
+        case 0x0A02: return "BLE Audio Control"
         case 0x0A03: return "BLE Audio Data"
         case 0x0D01: return "Device Control"
         case 0x0905: return "Pending File Count Update"

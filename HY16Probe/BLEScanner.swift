@@ -13,8 +13,8 @@
 //    - CBPeripheral.discoverServices(nil)
 //    - CBPeripheral.discoverCharacteristics(nil, for:)
 //
-//  As of the approved TEST 0 pass (voice/AI transport investigation),
-//  this file writes EXACTLY FIVE documented commands, all scoped to the
+//  As of the approved TEST 1B pass (voice/AI transport investigation),
+//  this file writes EXACTLY SIX documented commands, all scoped to the
 //  verified physical HY-16 characteristics (HY16Protocol.swift), and
 //  subscribes to exactly ONE notify characteristic:
 //    - peripheral.setNotifyValue(true, for:) on the verified READ/NOTIFY
@@ -39,20 +39,27 @@
 //      particularly AI Dialogue (doc offset 12) and BLE Audio (doc
 //      offset 14) support.
 //  TEST 1A (voice/AI transport investigation, pure observation pass)
-//  adds ZERO new send methods - writeValue call sites remain exactly
-//  the five above. It only teaches didUpdateValueFor(_:) to decode and
-//  log two additional DEV->APP notify command IDs the physical glasses
-//  already emit on their own when AI Dialogue is triggered FROM THE
-//  GLASSES (button or voice wake) - 0x0805 (AI Dialogue trigger) and
-//  0x0A03 (BLE Audio data). Nothing here sends 0x0A02, 0x0805, or
-//  0x0806, and nothing here activates microphone uplink from the app -
-//  this file only observes and counts whatever the device already
-//  chooses to transmit.
+//  added ZERO new send methods. It only teaches didUpdateValueFor(_:)
+//  to decode and log two DEV->APP notify command IDs the physical
+//  glasses already emit on their own when AI Dialogue is triggered FROM
+//  THE GLASSES (button or voice wake) - 0x0805 (AI Dialogue trigger)
+//  and 0x0A03 (BLE Audio data).
+//    - peripheral.writeValue(...) from sendBLEAudioControl(start:) -
+//      ONLY the documented 0x0A02 / value-1 (8kHz AI-dialogue mic
+//      uplink) or value-0 (off) request. This is the ONLY new command
+//      TEST 1B adds - called EXCLUSIVELY from an explicit user tap on
+//      "Enable 8kHz Mic Uplink" / "Disable Mic Uplink" in
+//      ContentView.swift. Critically: receiving 0x0805 (AI Dialogue
+//      Trigger) NEVER calls this method - there is no automatic
+//      response to 0x0805 anywhere in this file. Value 2 (16kHz) is
+//      never sent.
 //  No other command, value, OTA, delete, or reset logic exists anywhere
-//  in this file. In particular: no 0x0A02 (BLE Audio Control - would
-//  activate mic uplink), no 0x0806 (AI Dialogue link establish), no
-//  0x0918-0x091B (WiFi P2P), no 0x091D/0x091E/0x0921/0x0922 (video
-//  duration/resolution config), no RTSP client/player of any kind (no
+//  in this file. In particular: no 0x0806 (AI Dialogue link establish -
+//  deliberately not implemented this pass, per the explicit TEST 1B
+//  scope), no 0x0A01 (Get Call Status - also not implemented this
+//  pass), no 0x0918-0x091B (WiFi P2P), no 0x091D/0x091E/0x0921/0x0922
+//  (video duration/resolution config), no RTSP client/player of any
+//  kind (no
 //  MobileVLCKit, no FFmpeg, no AVPlayer pointed at a network stream -
 //  the existing AVPlayer usage in this file is strictly for local
 //  downloaded-MP4-file playback, added in a prior pass, and is
@@ -172,16 +179,38 @@ final class BLEScanner: NSObject, ObservableObject {
 
     // MARK: TEST 1A state (0x0805/0x0A03) - PURE OBSERVATION. Populated
     // only by real notify frames the glasses choose to emit on their own
-    // (triggered from the physical device, not by this app). Nothing in
-    // this class sends 0x0A02/0x0805/0x0806 or activates microphone
-    // uplink. resetTest1ACounters() below only clears these local
-    // counters - it sends nothing to the device.
+    // (triggered from the physical device, not by this app). This app
+    // never sends 0x0805, 0x0806, or 0x0A03 - see TEST 1B below for the
+    // one manual, explicit-tap exception (0x0A02). resetTest1ACounters()
+    // below only clears these local counters - it sends nothing to the
+    // device.
 
     @Published var aiDialogueTriggerCount: Int = 0
     @Published var lastAIDialogueState: String = "Not observed"
     @Published var bleAudioPacketCount: Int = 0
     @Published var bleAudioByteCount: Int = 0
     @Published var lastBLEAudioPayloadLength: Int?
+
+    // MARK: TEST 1B state (0x0A02) - MANUAL ONLY. sendBLEAudioControl(_:)
+    // below is called ONLY from an explicit user tap on "Enable 8kHz Mic
+    // Uplink" / "Disable Mic Uplink" - NEVER automatically, and NEVER as
+    // a reaction to receiving 0x0805. Reuses the exact same
+    // bleAudioPacketCount/bleAudioByteCount/lastBLEAudioPayloadLength
+    // counters from TEST 1A above to observe any resulting 0x0A03
+    // traffic - no separate counters needed.
+
+    @Published var bleAudioUplinkRequested: Bool = false
+    @Published var bleAudioControlAckReceived: Bool = false
+
+    // MARK: Audio-capture forensic test hook (approved pass). Optional
+    // closure, set by ContentView to AudioCaptureController's
+    // processIncoming0xA03(payload:sequence:). BLEScanner has NO
+    // knowledge of Opus/AVFoundation/capture state - it only forwards
+    // the exact same decoded payload the 0x0A03 case below already
+    // counts/logs, unmodified, alongside the frame's sequence byte. Nil
+    // (never set) is a no-op - existing TEST 1A/1B behavior is
+    // unaffected whether or not this is wired up.
+    var onBLEAudioDataPacket: (([UInt8], UInt8) -> Void)?
 
     // MARK: Save-to-Photos state (Pass 2b) - populated only by an explicit
     // tap on the "Save to Photos" button via savePhotoToLibrary(). Saves
@@ -387,9 +416,9 @@ final class BLEScanner: NSObject, ObservableObject {
         nextSequenceNumber = nextSequenceNumber &+ 1
     }
 
-    // MARK: TEST 1A - reset local diagnostic counters ONLY (0x0805/0x0A03
-    // pure observation pass). Sends NOTHING to the device - this is a
-    // local UI/state reset, not a BLE command.
+    // MARK: TEST 1A/1B - reset local diagnostic counters ONLY. Sends
+    // NOTHING to the device - this is a local UI/state reset, not a BLE
+    // command.
 
     func resetTest1ACounters() {
         aiDialogueTriggerCount = 0
@@ -397,7 +426,40 @@ final class BLEScanner: NSObject, ObservableObject {
         bleAudioPacketCount = 0
         bleAudioByteCount = 0
         lastBLEAudioPayloadLength = nil
-        log("TEST 1A: local diagnostic counters reset (nothing sent to device)")
+        bleAudioUplinkRequested = false
+        bleAudioControlAckReceived = false
+        log("TEST 1A/1B: local diagnostic counters reset (nothing sent to device)")
+    }
+
+    // MARK: BLE Audio Control (0x0A02, doc §11.2) - TEST 1B, MANUAL ONLY.
+    //
+    // Sends ONLY the documented 0x0A02 request: value 1 (8kHz AI-dialogue
+    // mic uplink) or value 0 (off). Never sends value 2 (16kHz - not
+    // tested this pass). Called ONLY from an explicit user tap on
+    // "Enable 8kHz Mic Uplink" / "Disable Mic Uplink" in ContentView -
+    // NEVER automatically, and NEVER as a reaction to receiving 0x0805
+    // (didUpdateValueFor's 0x0805 case below does not call this). No
+    // 0x0806 or 0x0A01 is sent anywhere in this file.
+
+    func sendBLEAudioControl(start: Bool) {
+        guard let peripheral = activePeripheral, let writeChar = writeCharacteristic else {
+            log("sendBLEAudioControl() ABORTED - not connected or write characteristic not found yet")
+            return
+        }
+        let seq = nextSequenceNumber
+        let value = start ? HY16Protocol.bleAudioAIDialogue8kHz : HY16Protocol.bleAudioOff
+        let frame = HY16Protocol.buildBLEAudioControlFrame(value: value, sequence: seq)
+        let data = Data(frame)
+
+        let valueDescription = start ? "AI Dialogue mic uplink, 8kHz (value 1)" : "off (value 0)"
+        log("RAW TX: \(HY16Protocol.hexString(frame))")
+        log("DECODED TX: 0x0A02 REQUEST seq=\(seq) — BLE Audio Control: \(valueDescription)")
+        log("  write type: .withoutResponse (same pattern as the other proven commands on this handle)")
+
+        peripheral.writeValue(data, for: writeChar, type: .withoutResponse)
+        nextSequenceNumber = nextSequenceNumber &+ 1
+        bleAudioUplinkRequested = start
+        bleAudioControlAckReceived = false
     }
 
     // MARK: File list (Pass 1 - read-only GET, raw text only, no parsing yet)
@@ -917,6 +979,12 @@ extension BLEScanner: CBPeripheralDelegate {
             _ = featureBit(docOffset: 16, name: "Device control / 设备控制")
             _ = featureBit(docOffset: 17, name: "Local recording / 本地录音")
             _ = featureBit(docOffset: 18, name: "Voice wake / 语音唤醒")
+        case 0x0A02: // BLE Audio Control response (doc §11.2) - empty-payload ack.
+            // TEST 1B - only ever reached after this app's own explicit,
+            // manual sendBLEAudioControl(_:) call. Logs the ack; does NOT
+            // trigger anything further automatically.
+            bleAudioControlAckReceived = true
+            log("  -> BLE Audio Control acknowledged by device (CRC \(frame.crcValid ? "OK" : "MISMATCH"))")
         case 0x0805: // AI Dialogue Trigger (doc §9.5) - DEVICE->APP NOTIFY.
             // TEST 1A PURE OBSERVATION - this app never sends 0x0805.
             // Payload (doc offset 6): 0x01=start, 0x00=stop.
@@ -957,6 +1025,12 @@ extension BLEScanner: CBPeripheralDelegate {
                 // traffic via the running counters.
                 log("BLE AUDIO DATA summary: \(bleAudioPacketCount) packets received so far, \(bleAudioByteCount) cumulative audio-data bytes")
             }
+
+            // Audio-capture forensic test hook (approved pass) - forwards
+            // the same decoded payload/sequence to AudioCaptureController
+            // when wired up. A no-op when nil, which is the case for every
+            // proven TEST 1A/1B behavior above.
+            onBLEAudioDataPacket?(frame.payload, frame.sequence)
         default:
             break
         }

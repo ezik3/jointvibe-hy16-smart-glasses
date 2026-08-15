@@ -110,6 +110,7 @@ struct DeviceDetailView: View {
     @ObservedObject var scanner: BLEScanner
     let device: DiscoveredPeripheral
     @StateObject private var livePreview: LivePreviewController
+    @StateObject private var audioCapture: AudioCaptureController
 
     init(scanner: BLEScanner, device: DiscoveredPeripheral) {
         self.scanner = scanner
@@ -118,6 +119,23 @@ struct DeviceDetailView: View {
         // Log section BLEScanner already populates - no change to
         // BLEScanner.swift needed since logLines is not private.
         _livePreview = StateObject(wrappedValue: LivePreviewController(log: { message in
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            scanner.logLines.append("[\(timestamp)] \(message)")
+        }))
+        // Same pattern for the audio-capture forensic test (approved pass).
+        // AudioCaptureController never touches BLE - scanner.onBLEAudioDataPacket
+        // is the one hook that forwards raw 0x0A03 payloads to it. NOT wired
+        // here: init() re-runs on every SwiftUI re-render of this view value
+        // (this struct is reconstructed by .navigationDestination whenever
+        // ContentView's body re-evaluates, which happens on every @Published
+        // mutation on scanner - including every single 0x0A03 packet). Only
+        // @StateObject's wrapped-value assignment is special-cased to survive
+        // that; a closure built from a local variable here would silently
+        // rebind onBLEAudioDataPacket to a fresh, never-started, throwaway
+        // AudioCaptureController almost every packet, orphaning the real
+        // (displayed, started) instance. Wired instead in .onAppear below,
+        // against self.audioCapture - the actual persisted instance.
+        _audioCapture = StateObject(wrappedValue: AudioCaptureController(log: { message in
             let timestamp = ISO8601DateFormatter().string(from: Date())
             scanner.logLines.append("[\(timestamp)] \(message)")
         }))
@@ -189,8 +207,8 @@ struct DeviceDetailView: View {
             }
 
             if scanner.canSendCommands {
-                Section("TEST 1A - AI/BLE Audio Observation (pure observation, no commands sent)") {
-                    Text("This app sends NOTHING here - no 0x0A02, no 0x0805, no 0x0806, no microphone activation. It only observes and counts whatever the physical glasses choose to transmit on their own (button press or voice wake).")
+                Section("TEST 1A - AI/BLE Audio Observation") {
+                    Text("This app never sends 0x0805, 0x0806, or 0x0A03, and never sends 0x0A02 automatically in response to 0x0805. It only observes and counts whatever the physical glasses choose to transmit on their own (button press or voice wake). 0x0A02 can only be sent manually via the separate TEST 1B controls below.")
                         .font(.caption2)
                         .foregroundColor(.secondary)
 
@@ -203,13 +221,117 @@ struct DeviceDetailView: View {
                     }
 
                     Button(action: { scanner.resetTest1ACounters() }) {
-                        Text("Reset TEST 1A Counters")
+                        Text("Reset TEST 1A/1B Counters")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                     Text("Resets only these local counters - sends nothing to the HY-16.")
                         .font(.caption2)
                         .foregroundColor(.secondary)
+                }
+            }
+
+            if scanner.canSendCommands {
+                Section("TEST 1B - Manual Mic Uplink Control (0x0A02, v2.0.17 §11.2)") {
+                    Text("MANUAL ONLY. Nothing here fires automatically or in response to 0x0805. First observe a real 0x0805 START above (physically trigger AI Dialogue on the glasses), THEN tap Enable below if you want to test whether the glasses begin sending 0x0A03. Never sends 0x0806 or 0x0A01.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 12) {
+                        Button(action: { scanner.sendBLEAudioControl(start: true) }) {
+                            Text("Enable 8kHz Mic Uplink")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button(action: { scanner.sendBLEAudioControl(start: false) }) {
+                            Text("Disable Mic Uplink")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    Text("Sends only 0x0A02 value 1 (8kHz AI-dialogue mic uplink) or value 0 (off) - documented §11.2. Never value 2 (16kHz).")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    LabeledContent("Mic uplink requested", value: scanner.bleAudioUplinkRequested ? "ON (8kHz)" : "OFF")
+                    LabeledContent("0x0A02 acknowledged by device", value: scanner.bleAudioControlAckReceived ? "Yes" : "Not yet")
+                    Text("Watch the BLE Audio packets/bytes counters in TEST 1A above for any resulting 0x0A03 traffic.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            if scanner.canSendCommands {
+                Section("Audio Capture/Decode Test (forensic probe - Opus via alta/swift-opus)") {
+                    Text("Engineering probe only. Does not touch TEST 1B's proven 0x0A02/0x0A03 BLE behavior - only reads the same decoded payloads via a one-line hook. START sends the existing, unmodified 0x0A02 value 1; STOP sends 0x0A02 value 0. Raw bytes are always saved; a WAV is produced only if the Opus decoder genuinely succeeds.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    LabeledContent("CAPTURE ACTIVE", value: audioCapture.isCaptureActive ? "YES" : "NO")
+                    LabeledContent("0x0A03 packets", value: "\(audioCapture.packetCount)")
+                    LabeledContent("Encoded bytes", value: "\(audioCapture.encodedByteCount)")
+                    LabeledContent("Opus frames", value: "\(audioCapture.opusFrameCount)")
+                    LabeledContent("Decoded frames", value: "\(audioCapture.decodedFrameCount)")
+                    LabeledContent("Decoded PCM samples", value: "\(audioCapture.decodedSampleCount)")
+                    LabeledContent("Decoder errors", value: "\(audioCapture.decoderErrorCount)")
+                    LabeledContent("Missing BLE packets", value: "\(audioCapture.missingSequenceCount)")
+                    LabeledContent("Last decoder result", value: audioCapture.lastDecoderResult)
+                    LabeledContent("Capture duration", value: audioCapture.captureDurationText)
+
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            audioCapture.startCapture()
+                            scanner.sendBLEAudioControl(start: true)
+                        }) {
+                            Text("START AUDIO CAPTURE")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(audioCapture.isCaptureActive)
+
+                        Button(action: {
+                            scanner.sendBLEAudioControl(start: false)
+                            audioCapture.stopCapture()
+                        }) {
+                            Text("STOP AUDIO CAPTURE")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!audioCapture.isCaptureActive)
+                    }
+
+                    HStack(spacing: 12) {
+                        Button(action: { audioCapture.playLastCapture() }) {
+                            Text("PLAY LAST CAPTURE")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(audioCapture.lastWAVCaptureURL == nil)
+
+                        if let wavURL = audioCapture.lastWAVCaptureURL {
+                            ShareLink(item: wavURL) {
+                                Text("SHARE/SAVE LAST CAPTURE")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                        } else {
+                            Text("SHARE/SAVE LAST CAPTURE")
+                                .frame(maxWidth: .infinity)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    if let rawURL = audioCapture.lastRawCaptureURL {
+                        Text("Raw: \(rawURL.lastPathComponent)")
+                            .font(.system(size: 10, design: .monospaced))
+                            .textSelection(.enabled)
+                    }
+                    if let wavURL = audioCapture.lastWAVCaptureURL {
+                        Text("WAV: \(wavURL.lastPathComponent)")
+                            .font(.system(size: 10, design: .monospaced))
+                            .textSelection(.enabled)
+                    }
                 }
             }
 
@@ -451,6 +573,15 @@ struct DeviceDetailView: View {
             // from the list on the previous screen - never automatically.
             if scanner.connectedPeripheralID != device.id {
                 scanner.connect(to: device)
+            }
+            // Audio-capture forensic test hook (approved pass) - wired here,
+            // not in init(), specifically because .onAppear only fires when
+            // this view value actually appears/reappears, not on every
+            // re-render. self.audioCapture always resolves to the one true
+            // @StateObject-persisted instance, so repeated firings just
+            // re-point the closure at the same correct object - harmless.
+            scanner.onBLEAudioDataPacket = { [weak audioCapture] payload, sequence in
+                audioCapture?.processIncoming0xA03(payload: payload, sequence: sequence)
             }
         }
         .onDisappear {
