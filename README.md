@@ -44,17 +44,30 @@ On real HY-16 hardware, end-to-end and interactively:
 
 ## Known-good physical baseline
 
-**Tag:** `hy16-fast-conversation-pre-onboarding-recovery-v1`
-**Commit:** `8cb4dcf72ab7b65e93639df8ce3ca166c69a47e0`
+**Tag:** `hy16-fast-conversation-physical-pass-v1`
 
-This tag is the canonical reference point for "the fast, physically
-approved continuous AI conversation." It was captured immediately
-*before* a later AI-identity/onboarding experiment was attempted and
-then rolled back after physical testing revealed regressions (see
+This tag means: **real iPhone + real HY-16 + AI conversation + Kokoro
+voice + glasses playback, physically confirmed working, end to end, on
+real hardware** — not just a recovered/backed-up source state. See
+[`docs/PHYSICAL_TEST_LOG.md`](docs/PHYSICAL_TEST_LOG.md) for the exact
+test date, what was verified, and a discovered/resolved failure mode
+(a stale Mac LAN IP breaking local Kokoro connectivity) worth knowing
+about before you assume a future connectivity issue is a code
+regression.
+
+The source at this tag is identical to the earlier
+`hy16-fast-conversation-pre-onboarding-recovery-v1` (commit
+`8cb4dcf72ab7b65e93639df8ce3ca166c69a47e0`) plus `hy16-complete-disaster-recovery-v1`
+— that earlier tag remains the canonical reference point for "the fast
+conversation source code, captured immediately *before* a later
+AI-identity/onboarding experiment was attempted and then rolled back
+after physical testing revealed regressions" (see
 [`docs/AI_CONVERSATION_PIPELINE.md`](docs/AI_CONVERSATION_PIPELINE.md)
-for the full history — this is deliberately documented so nobody, human
+for that full history — this is deliberately documented so nobody, human
 or AI, mistakes a later, worse-performing experiment for the good
-version).
+version). The physical-pass tag above is the one to trust for "does this
+actually work on real hardware," since it's backed by an actual test,
+not just source provenance.
 
 If you are picking this project back up after a long gap, or on a new
 machine: start from this tag, not from whatever `main` happens to
