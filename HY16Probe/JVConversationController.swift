@@ -102,6 +102,18 @@ final class JVConversationController: ObservableObject {
     private weak var glassesSpeakerTest: GlassesSpeakerTestController?
     private weak var latencySession: JVLatencySession?
 
+    // MARK: M0 STEP 1 (approved pass) - alternative AI backend, wired via
+    // a SEPARATE, additive configureM0(...) call (not a change to
+    // configure(...)'s existing signature/call sites). m0ModeEnabled
+    // defaults false, matching the explicit "M0 must be ADDITIVE and
+    // selectable, default OFF" requirement - when false, handleFinalTranscript
+    // below takes the EXACT SAME branch it always has, unchanged. Only
+    // when true does the new JointVibeGatewayProvider branch run instead,
+    // and it re-uses beginSpeaking(reply:generation:) - and therefore the
+    // proven voiceStudioTTS/glassesSpeakerTest chain - completely unchanged.
+    @Published var m0ModeEnabled: Bool = false
+    private weak var jvGatewayProvider: JointVibeGatewayProvider?
+
     private var turnGeneration: Int = 0
     private var continuousModeActive: Bool = false
     private var currentLLMTask: URLSessionDataTask?
@@ -173,6 +185,16 @@ final class JVConversationController: ObservableObject {
         }
     }
 
+    /// M0 STEP 1 (approved pass) - SEPARATE, additive wiring call. Does
+    /// NOT touch configure(...) above or any of its existing call sites.
+    /// Only stores the weak reference to jvGatewayProvider - m0ModeEnabled
+    /// (defaults false) is what actually gates whether it's ever used, in
+    /// handleFinalTranscript below. Safe to call repeatedly, same
+    /// convention as configure(...).
+    func configureM0(jvGatewayProvider: JointVibeGatewayProvider) {
+        self.jvGatewayProvider = jvGatewayProvider
+    }
+
     /// Approved pass - see onPlaybackFinished wiring above. Guards on
     /// aiState == .speaking so a hook firing unexpectedly late (e.g. if a
     /// delegate callback landed after some other transition already
@@ -232,6 +254,41 @@ final class JVConversationController: ObservableObject {
 
         aiState = .thinking
         currentSpokenText = ""
+
+        // M0 STEP 1 (approved pass) - additive branch, gated behind
+        // m0ModeEnabled (defaults false). When false, execution falls
+        // through unchanged to the existing aiService?.respond(...) call
+        // below - not one line of that existing call changes. When true,
+        // this branch calls JointVibeGatewayProvider.respond(to:completion:)
+        // instead - which conforms to the SAME AIResponding protocol, so
+        // the exact same beginSpeaking(reply:generation:) is reused for
+        // BOTH providers, meaning the proven Kokoro/glasses-playback chain
+        // is completely unmodified regardless of which AI provider answered.
+        if m0ModeEnabled, let jvGatewayProvider {
+            log("JVConversation: M0 mode active - routing turn generation \(myGeneration) to JointVibeGatewayProvider")
+            currentLLMTask = jvGatewayProvider.respond(to: transcript) { [weak self] result in
+                guard let self, myGeneration == self.turnGeneration else {
+                    self?.log("JVConversation: ignoring stale M0 LLM completion for generation \(myGeneration) (current is \(self?.turnGeneration ?? -1))")
+                    return
+                }
+                switch result {
+                case .success(let reply):
+                    self.beginSpeaking(reply: reply, generation: myGeneration)
+                case .failure(let error):
+                    self.aiState = .idle
+                    if let gatewayError = error as? JointVibeGatewayProvider.GatewayError,
+                       gatewayError == .silentAuthenticationFailure {
+                        self.log("JVConversation: M0 turn failed - silent authentication failure detected")
+                        self.glassesSpeakerTest?.speak("Please sign back into Joint Vibe.")
+                    } else {
+                        self.log("JVConversation: M0 turn failed - \(error.localizedDescription)")
+                        self.glassesSpeakerTest?.speak("Sorry, I couldn't reach Joint Vibe.")
+                    }
+                }
+            }
+            return
+        }
+
         currentLLMTask = aiService?.respond(to: transcript) { [weak self] result in
             guard let self, myGeneration == self.turnGeneration else {
                 self?.log("JVConversation: ignoring stale LLM completion for generation \(myGeneration) (current is \(self?.turnGeneration ?? -1))")

@@ -76,3 +76,36 @@ current LAN IP (`ipconfig getifaddr en0`) against
 `docs/ARCHITECTURE.md`'s "LAN IP addresses are not permanent
 configuration" section and `docs/RECOVERY.md` step 6 for the standing
 guidance this incident reinforces.
+
+---
+
+## 2026-08-18 — PHYSICAL PASS: M0 STEP 1 — HY-16 connected to the authenticated Joint Vibe AI gateway
+
+**Tag:** `hy16-jointvibe-ai-m0-step1-physical-pass-v1`
+
+**Result:** M0 STEP 1 physically confirmed end to end on a real iPhone
+connected to a real HY-16 unit, with M0 mode **ON**:
+
+```
+HY-16 microphone → BLE audio uplink → existing speech/transcription
+pipeline (unchanged) → runtime Joint Vibe/Supabase authentication →
+Joint Vibe ai-gateway → Joint Vibe AI response → existing direct Kokoro
+TTS (unchanged) → playback through the HY-16's own speaker (unchanged)
+```
+
+This is the first physical confirmation that the proven native
+conversation pipeline documented in the entry above can be driven by
+Joint Vibe's own authenticated AI backend instead of the standalone
+OpenRouter path, without disturbing anything in that proven pipeline.
+`JointVibeGatewayProvider` (new this pass) conforms to the same
+`AIResponding` protocol `OpenRouterAIService` already conforms to, so
+the entire BLE/ASR/900ms-endpoint/Kokoro/speaker-playback/barge-in chain
+downstream of the transcript is exactly the code proven in the entry
+above — nothing about it changed to make this pass possible.
+
+- **M0 mode was ON** for this test (`JVConversationController.m0ModeEnabled = true`, toggled via the new development-only "JOINT VIBE AI GATEWAY (M0 STEP 1)" section).
+- **The original standalone AI path remains fully available** with M0 mode OFF — this is an additive, selectable branch in `handleFinalTranscript`, not a replacement; the pre-M0 `aiService?.respond(to:)` call is byte-for-byte unchanged.
+- **Approximate observed response latency: ~5 seconds**, end to end (speech end through audible playback start). This is expected and unoptimized — STEP 1 is explicitly a buffered implementation (waits for the complete SSE response, including `[DONE]`, before starting TTS at all; no first-sentence streaming yet). **Latency optimization has deliberately not been performed and is the next development problem, not part of this milestone.**
+- This milestone proves **connectivity and integration** — authenticated Joint Vibe identity reaching the gateway, a real AI response returning, and that response reaching the HY-16 speaker through the unmodified proven pipeline. It does **not** claim or represent final production performance.
+
+No passwords, tokens, keys, JWTs, or other credentials are recorded here or anywhere in this repository — auth for this test used runtime-entered credentials held in memory only, per `JointVibeGatewayProvider.swift`'s design (see `docs/RECOVERY.md`/`docs/ARCHITECTURE.md` for the M0 auth model).

@@ -119,6 +119,14 @@ struct DeviceDetailView: View {
     @StateObject private var voiceStudioTTS: VoiceStudioTTSService
     @StateObject private var latencySession: JVLatencySession
     @StateObject private var conversationController: JVConversationController
+    // M0 STEP 1 (approved pass) - same isolated StateObject+log-closure
+    // pattern as every other controller above. Wired into
+    // conversationController via the SEPARATE, additive configureM0(...)
+    // call in .onAppear below - not a change to configure(...) itself.
+    @StateObject private var jvGatewayProvider: JointVibeGatewayProvider
+    @State private var m0Email: String = ""
+    @State private var m0Password: String = ""
+    @State private var m0SignInStatus: String = "Not signed in"
 
     init(scanner: BLEScanner, device: DiscoveredPeripheral) {
         self.scanner = scanner
@@ -205,6 +213,15 @@ struct DeviceDetailView: View {
         // why (the established self.xxx-in-.onAppear convention this
         // project already relies on for every cross-controller hook).
         _conversationController = StateObject(wrappedValue: JVConversationController(log: { message in
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            scanner.logLines.append("[\(timestamp)] \(message)")
+        }))
+        // M0 STEP 1 (approved pass) - same isolated pattern. Reads
+        // Supabase URL/anon key from HY16Probe/Secrets.plist (git-ignored,
+        // see Secrets.plist.example) - never touches BLE/audio/VAD/Kokoro
+        // code. auth tokens live only as in-memory properties on this
+        // instance - never persisted, never logged in full.
+        _jvGatewayProvider = StateObject(wrappedValue: JointVibeGatewayProvider(log: { message in
             let timestamp = ISO8601DateFormatter().string(from: Date())
             scanner.logLines.append("[\(timestamp)] \(message)")
         }))
@@ -442,6 +459,77 @@ struct DeviceDetailView: View {
                         .disabled(jvSpeechTest.state != .listening && conversationController.aiState == .idle)
                     }
                 }
+            }
+
+            // M0 STEP 1 (approved pass) - development-only test UI. Not
+            // production Joint Vibe UI - just enough to sign in, verify
+            // the session, and toggle which AI provider handleFinalTranscript
+            // routes to. Never touches BLE/audio/Kokoro/speaker code.
+            Section("JOINT VIBE AI GATEWAY (M0 STEP 1 - development only)") {
+                Text("Runtime-only credentials - never stored, never committed. Relaunching the app requires signing in again. Toggling M0 ON routes the NEXT conversation turn to Joint Vibe's ai-gateway instead of OpenRouter; toggling it OFF restores the original, proven behavior exactly.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                LabeledContent("Auth status", value: jvGatewayProvider.authState.description)
+                if let sessionID = jvGatewayProvider.lastSessionID {
+                    LabeledContent("X-Session-Id", value: sessionID)
+                }
+                if let intent = jvGatewayProvider.lastIntent {
+                    LabeledContent("X-Intent", value: intent)
+                }
+                if let remaining = jvGatewayProvider.lastRemainingTokens {
+                    LabeledContent("X-Remaining-Tokens", value: remaining)
+                }
+
+                TextField("Email", text: $m0Email)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .keyboardType(.emailAddress)
+                SecureField("Password", text: $m0Password)
+
+                HStack(spacing: 12) {
+                    Button(action: {
+                        m0SignInStatus = "Signing in…"
+                        jvGatewayProvider.signIn(email: m0Email, password: m0Password) { success in
+                            m0SignInStatus = success ? "Signed in" : "Sign-in failed"
+                            m0Password = "" // never retained beyond the single request either way
+                        }
+                    }) {
+                        Text("Sign In")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(m0Email.isEmpty || m0Password.isEmpty)
+
+                    Button(action: {
+                        jvGatewayProvider.verifySession { success in
+                            m0SignInStatus = success ? "Session verified" : "Session verification FAILED"
+                        }
+                    }) {
+                        Text("Verify Session")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(jvGatewayProvider.authState != .signedIn)
+                }
+                Text(m0SignInStatus)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Button(action: { jvGatewayProvider.prewarm() }) {
+                    Text("Pre-warm Gateway")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(jvGatewayProvider.authState != .signedIn)
+
+                Divider()
+
+                Toggle("M0 mode ON (route to Joint Vibe gateway)", isOn: $conversationController.m0ModeEnabled)
+                    .disabled(jvGatewayProvider.authState != .signedIn)
+                Text("Only selectable once signed in. When OFF, conversation turns use the original, unmodified OpenRouter path exactly as before.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
 
             Section("TEST GLASSES SPEAKER (PATH A - normal iOS Bluetooth audio)") {
@@ -778,6 +866,10 @@ struct DeviceDetailView: View {
                 glassesSpeakerTest: glassesSpeakerTest,
                 latencySession: latencySession
             )
+            // M0 STEP 1 (approved pass) - SEPARATE, additive call, same
+            // .onAppear reasoning as configure(...) above. Does not alter
+            // configure(...)'s own behavior in any way.
+            conversationController.configureM0(jvGatewayProvider: jvGatewayProvider)
         }
         .onDisappear {
             scanner.disconnect()
