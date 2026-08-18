@@ -1,0 +1,23 @@
+# direct-kokoro-service dependencies (approved disaster-recovery pass).
+#
+# Determined by direct inspection of server.py's imports, NOT guessed:
+# only `numpy` and `mlx_audio.tts.utils.load_model` are used beyond the
+# Python standard library (json/sys/time/wave/http.server).
+#
+# Versions below are the EXACT versions confirmed installed in the venv
+# actively running server.py at the time this file was written (read-only
+# inspection via `pip show`/`pip freeze` - no environment was changed to
+# produce these numbers):
+#
+#   Python      3.11.15
+#   numpy       2.4.3
+#   mlx-audio   0.4.2   (pulls in `mlx` as its own transitive dependency -
+#                        not pinned separately here so pip can resolve a
+#                        version compatible with mlx-audio==0.4.2 on
+#                        whatever Apple Silicon Mac this is installed on)
+#
+# mlx / mlx-audio require Apple Silicon (arm64) macOS - there is no Intel
+# or non-Apple-Silicon equivalent. See docs/SETUP_MAC.md.
+
+numpy==2.4.3
+mlx-audio==0.4.2
