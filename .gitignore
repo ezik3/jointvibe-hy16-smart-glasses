@@ -8,3 +8,7 @@ build/
 
 # macOS Finder metadata
 .DS_Store
+
+# Local secrets (OpenRouter API key, model config) - NEVER commit.
+# See HY16Probe/Secrets.plist.example for the tracked template.
+HY16Probe/Secrets.plist

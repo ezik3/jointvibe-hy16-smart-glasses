@@ -8,27 +8,49 @@
 
 /* Begin PBXBuildFile section */
 		06009B0025ECF78878A224F7 /* AudioCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70483EC60AC060D02A89372B /* AudioCapture.swift */; };
+		1A0AFFD85E7C4229C68CC7E1 /* JVConversationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17F51D3BC4970B978DFAB8AC /* JVConversationController.swift */; };
+		328398203DF8F68CFFE132DD /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 038333E4F7EFC33D8388350B /* AIService.swift */; };
+		382D42F4769A5E81922D2E7E /* JVSpeechTestController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 413BD72267433584F93819B4 /* JVSpeechTestController.swift */; };
 		482A862B2C76B18CCF0C5BBC /* BLEScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54B22CFF7D5FD3F0D0655BE7 /* BLEScanner.swift */; };
+		55AB086F94B43933B389F7D3 /* AudioDownlinkTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBF2D3F10DBAA2C4E012895B /* AudioDownlinkTest.swift */; };
 		703F7B0275150BF9E0406302 /* HY16Protocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7EDB1901362EBEFF9FB87B8 /* HY16Protocol.swift */; };
 		71E49E4248014427DE67C102 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C8511FB6AEEB3AAA5AF968E /* ContentView.swift */; };
 		74598C5F7845178A82E89008 /* KnownUUIDs.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB509D2864AA4EFD8125A0F0 /* KnownUUIDs.swift */; };
+		77DE99D1DB00C34EE7065121 /* GlassesSpeakerTestController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 570D2FADDCB20B0B1B99EE0C /* GlassesSpeakerTestController.swift */; };
 		7993246D132B2F4B7B57B3FF /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 7768A7056EF590F02EE8C188 /* Opus */; };
 		93D3AEEEF6F705696BAE7A39 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA06D1DAAEB2E6B87B14CC6 /* Models.swift */; };
 		A905A2082C5EF259DF3B1036 /* LivePreviewPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFD74CFF8A2EAF26112CC8EA /* LivePreviewPlayer.swift */; };
 		AC6960CBD51F76110B0B581F /* VLCKit in Frameworks */ = {isa = PBXBuildFile; productRef = 97BDB8867775A01F72354F94 /* VLCKit */; };
+		BA3747A18C34F64975D1B80B /* JVLatencyTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E83ED1976B47C9C863C48330 /* JVLatencyTracker.swift */; };
+		C1E59A410CF98F24DE4DFC56 /* Secrets.plist.example in Resources */ = {isa = PBXBuildFile; fileRef = E95988C777669B8C3F58BA46 /* Secrets.plist.example */; };
+		D212C708F737FB385B9338AA /* OpenRouterAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4DC8C0A15A446D2594A8A82 /* OpenRouterAIService.swift */; };
+		D9409D10A971A8D74EF240B1 /* VoiceStudioTTSService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E533E3D090D70A027F02D3C /* VoiceStudioTTSService.swift */; };
+		E435F7045807E4420D2AF8F6 /* TTSGenerating.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70E2BBDEBF137C1C3FB7C8EA /* TTSGenerating.swift */; };
+		F23753F1DA902A5188C4C3A1 /* Secrets.plist in Resources */ = {isa = PBXBuildFile; fileRef = D140D30A97235D08FA7E4101 /* Secrets.plist */; };
 		F8C55221940049671BBED664 /* HY16ProbeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6251CB4D7A0F15F92519D03C /* HY16ProbeApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		038333E4F7EFC33D8388350B /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
+		17F51D3BC4970B978DFAB8AC /* JVConversationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JVConversationController.swift; sourceTree = "<group>"; };
 		2AA06D1DAAEB2E6B87B14CC6 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		413BD72267433584F93819B4 /* JVSpeechTestController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JVSpeechTestController.swift; sourceTree = "<group>"; };
 		54B22CFF7D5FD3F0D0655BE7 /* BLEScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEScanner.swift; sourceTree = "<group>"; };
+		570D2FADDCB20B0B1B99EE0C /* GlassesSpeakerTestController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesSpeakerTestController.swift; sourceTree = "<group>"; };
 		6251CB4D7A0F15F92519D03C /* HY16ProbeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HY16ProbeApp.swift; sourceTree = "<group>"; };
+		6E533E3D090D70A027F02D3C /* VoiceStudioTTSService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceStudioTTSService.swift; sourceTree = "<group>"; };
 		70483EC60AC060D02A89372B /* AudioCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCapture.swift; sourceTree = "<group>"; };
+		70E2BBDEBF137C1C3FB7C8EA /* TTSGenerating.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSGenerating.swift; sourceTree = "<group>"; };
 		8C8511FB6AEEB3AAA5AF968E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		91AE26D6629FF33FFA656D75 /* HY16Probe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HY16Probe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		91AE26D6629FF33FFA656D75 /* HY16Probe.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HY16Probe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CFD74CFF8A2EAF26112CC8EA /* LivePreviewPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePreviewPlayer.swift; sourceTree = "<group>"; };
+		D140D30A97235D08FA7E4101 /* Secrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Secrets.plist; sourceTree = "<group>"; };
 		D7EDB1901362EBEFF9FB87B8 /* HY16Protocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HY16Protocol.swift; sourceTree = "<group>"; };
 		DB509D2864AA4EFD8125A0F0 /* KnownUUIDs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownUUIDs.swift; sourceTree = "<group>"; };
+		E83ED1976B47C9C863C48330 /* JVLatencyTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JVLatencyTracker.swift; sourceTree = "<group>"; };
+		E95988C777669B8C3F58BA46 /* Secrets.plist.example */ = {isa = PBXFileReference; path = Secrets.plist.example; sourceTree = "<group>"; };
+		EBF2D3F10DBAA2C4E012895B /* AudioDownlinkTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioDownlinkTest.swift; sourceTree = "<group>"; };
+		F4DC8C0A15A446D2594A8A82 /* OpenRouterAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenRouterAIService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -47,14 +69,25 @@
 		31F6A5C785575B93C568129A /* HY16Probe */ = {
 			isa = PBXGroup;
 			children = (
+				038333E4F7EFC33D8388350B /* AIService.swift */,
 				70483EC60AC060D02A89372B /* AudioCapture.swift */,
+				EBF2D3F10DBAA2C4E012895B /* AudioDownlinkTest.swift */,
 				54B22CFF7D5FD3F0D0655BE7 /* BLEScanner.swift */,
 				8C8511FB6AEEB3AAA5AF968E /* ContentView.swift */,
+				570D2FADDCB20B0B1B99EE0C /* GlassesSpeakerTestController.swift */,
 				6251CB4D7A0F15F92519D03C /* HY16ProbeApp.swift */,
 				D7EDB1901362EBEFF9FB87B8 /* HY16Protocol.swift */,
+				17F51D3BC4970B978DFAB8AC /* JVConversationController.swift */,
+				E83ED1976B47C9C863C48330 /* JVLatencyTracker.swift */,
+				413BD72267433584F93819B4 /* JVSpeechTestController.swift */,
 				DB509D2864AA4EFD8125A0F0 /* KnownUUIDs.swift */,
 				CFD74CFF8A2EAF26112CC8EA /* LivePreviewPlayer.swift */,
 				2AA06D1DAAEB2E6B87B14CC6 /* Models.swift */,
+				F4DC8C0A15A446D2594A8A82 /* OpenRouterAIService.swift */,
+				D140D30A97235D08FA7E4101 /* Secrets.plist */,
+				E95988C777669B8C3F58BA46 /* Secrets.plist.example */,
+				70E2BBDEBF137C1C3FB7C8EA /* TTSGenerating.swift */,
+				6E533E3D090D70A027F02D3C /* VoiceStudioTTSService.swift */,
 			);
 			path = HY16Probe;
 			sourceTree = "<group>";
@@ -83,6 +116,7 @@
 			buildConfigurationList = 04F803FFF4859C410764C0AE /* Build configuration list for PBXNativeTarget "HY16Probe" */;
 			buildPhases = (
 				8FEA2E3C0E58A355B6C25573 /* Sources */,
+				13EA8B470F53DBD39888A9D6 /* Resources */,
 				610969BCB4D95FBDD85FD861 /* Frameworks */,
 			);
 			buildRules = (
@@ -108,6 +142,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					7F23B3AA03D327C44A5D71BB = {
+						DevelopmentTeam = 9HLXAJ3LPL;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -135,19 +170,40 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		13EA8B470F53DBD39888A9D6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F23753F1DA902A5188C4C3A1 /* Secrets.plist in Resources */,
+				C1E59A410CF98F24DE4DFC56 /* Secrets.plist.example in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		8FEA2E3C0E58A355B6C25573 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				328398203DF8F68CFFE132DD /* AIService.swift in Sources */,
 				06009B0025ECF78878A224F7 /* AudioCapture.swift in Sources */,
+				55AB086F94B43933B389F7D3 /* AudioDownlinkTest.swift in Sources */,
 				482A862B2C76B18CCF0C5BBC /* BLEScanner.swift in Sources */,
 				71E49E4248014427DE67C102 /* ContentView.swift in Sources */,
+				77DE99D1DB00C34EE7065121 /* GlassesSpeakerTestController.swift in Sources */,
 				F8C55221940049671BBED664 /* HY16ProbeApp.swift in Sources */,
 				703F7B0275150BF9E0406302 /* HY16Protocol.swift in Sources */,
+				1A0AFFD85E7C4229C68CC7E1 /* JVConversationController.swift in Sources */,
+				BA3747A18C34F64975D1B80B /* JVLatencyTracker.swift in Sources */,
+				382D42F4769A5E81922D2E7E /* JVSpeechTestController.swift in Sources */,
 				74598C5F7845178A82E89008 /* KnownUUIDs.swift in Sources */,
 				A905A2082C5EF259DF3B1036 /* LivePreviewPlayer.swift in Sources */,
 				93D3AEEEF6F705696BAE7A39 /* Models.swift in Sources */,
+				D212C708F737FB385B9338AA /* OpenRouterAIService.swift in Sources */,
+				E435F7045807E4420D2AF8F6 /* TTSGenerating.swift in Sources */,
+				D9409D10A971A8D74EF240B1 /* VoiceStudioTTSService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

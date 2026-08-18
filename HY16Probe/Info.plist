@@ -41,5 +41,12 @@
 	<string>HY16Probe saves a photo from your HY-16 glasses to your Photos library only when you tap Save.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>HY16Probe connects to your HY-16 glasses over the Wi-Fi network they create, to fetch photos/videos and, when you tap Start Live Preview, to open the live camera stream the glasses report.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>HY16Probe uses Apple's Speech framework to transcribe HY-16 microphone audio (received over Bluetooth) into text, for the JV AI speech test. Your iPhone's own microphone is never used - only audio already received from the glasses.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

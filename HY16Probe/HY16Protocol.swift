@@ -131,6 +131,28 @@ enum HY16Protocol {
         buildFrame(cmdID: cmdBLEAudioControl, type: .request, sequence: sequence, payload: [value])
     }
 
+    // MARK: BLE Audio Data downlink (protocol doc §11.3, 0x0A03) - Phase 0
+    // speaker/downlink test ONLY. §11.3 headers 0x0A03 as "APP<->DEVICE"
+    // (bidirectional) with the encoding spec explicitly shared between
+    // uplink and downlink. The APP功能交互流程 interaction-flow diagram
+    // (图3-6-1) labels the downlink direction "APP->DEVICE NTF:0x0A03,data"
+    // during "AI说话中" - NOTIFY type, not REQUEST/RESPONSE like 0x0A02 -
+    // so this builder uses .notify to match that exact documented framing,
+    // not the REQUEST type used elsewhere in this file. Payload shape
+    // mirrors the proven uplink payload exactly: byte 0 = flow-control/
+    // send-interval, remaining bytes = Opus-encoded audio data. No
+    // assumption/guess beyond what §11.3 and 图3-6-1 directly state.
+
+    static let cmdBLEAudioData: UInt16 = 0x0A03
+
+    /// Convenience: build a documented BLE Audio Data (downlink) frame.
+    /// `payload` is the caller-assembled [flow-control byte] + [Opus audio
+    /// bytes] - this function only wraps it in the proven A5/CRC16 frame,
+    /// exactly as every other builder in this file does.
+    static func buildBLEAudioDataFrame(payload: [UInt8], sequence: UInt8) -> [UInt8] {
+        buildFrame(cmdID: cmdBLEAudioData, type: .notify, sequence: sequence, payload: payload)
+    }
+
     // MARK: Video Preview Control (protocol doc §10.10, 0x090A)
     // Sends ONLY the documented start(1)/stop(0) request. Per the doc, once
     // the device opens preview it also sends 0x0908 (Real-time Video API) as

@@ -111,6 +111,14 @@ struct DeviceDetailView: View {
     let device: DiscoveredPeripheral
     @StateObject private var livePreview: LivePreviewController
     @StateObject private var audioCapture: AudioCaptureController
+    @StateObject private var downlinkTest: AudioDownlinkTestSender
+    @State private var downlinkTestStatus: String = "Idle"
+    @StateObject private var jvSpeechTest: JVSpeechTestController
+    @StateObject private var glassesSpeakerTest: GlassesSpeakerTestController
+    @StateObject private var aiService: OpenRouterAIService
+    @StateObject private var voiceStudioTTS: VoiceStudioTTSService
+    @StateObject private var latencySession: JVLatencySession
+    @StateObject private var conversationController: JVConversationController
 
     init(scanner: BLEScanner, device: DiscoveredPeripheral) {
         self.scanner = scanner
@@ -136,6 +144,67 @@ struct DeviceDetailView: View {
         // (displayed, started) instance. Wired instead in .onAppear below,
         // against self.audioCapture - the actual persisted instance.
         _audioCapture = StateObject(wrappedValue: AudioCaptureController(log: { message in
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            scanner.logLines.append("[\(timestamp)] \(message)")
+        }))
+        // Phase 0 speaker/downlink test (approved pass) - same isolated
+        // pattern. The 8kHz mono Opus format this constructs is the exact
+        // one already proven to succeed throughout this session (used
+        // identically by AudioCaptureController above) - try! matches the
+        // fatalError-on-truly-impossible-failure style used there.
+        _downlinkTest = StateObject(wrappedValue: try! AudioDownlinkTestSender(log: { message in
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            scanner.logLines.append("[\(timestamp)] \(message)")
+        }))
+        // JV AI - Speech Test (approved pass) - same isolated pattern as
+        // audioCapture/downlinkTest above. Never touches BLE itself; only
+        // consumes AVAudioPCMBuffer objects AudioCaptureController's
+        // proven decode(chunk:) already produces, via the new
+        // onDecodedPCMBuffer hook wired in .onAppear below.
+        _jvSpeechTest = StateObject(wrappedValue: JVSpeechTestController(log: { message in
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            scanner.logLines.append("[\(timestamp)] \(message)")
+        }))
+        // TEST GLASSES SPEAKER (approved pass) - same isolated pattern.
+        // No BLE hook to wire in .onAppear below - this controller never
+        // consumes anything from BLEScanner/AudioCaptureController, it
+        // only uses normal iOS audio routing (PATH A).
+        _glassesSpeakerTest = StateObject(wrappedValue: GlassesSpeakerTestController(log: { message in
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            scanner.logLines.append("[\(timestamp)] \(message)")
+        }))
+        // JV AI - LLM-in-the-loop (approved pass) - same isolated pattern.
+        // Reads config from HY16Probe/Secrets.plist (git-ignored) - never
+        // touches BLE/audio/VAD/speaker code itself.
+        _aiService = StateObject(wrappedValue: OpenRouterAIService(log: { message in
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            scanner.logLines.append("[\(timestamp)] \(message)")
+        }))
+        // JV AI - VoiceStudio TTS (approved pass) - same isolated pattern.
+        // Reads config from HY16Probe/Secrets.plist (git-ignored) - never
+        // touches BLE/audio/VAD/LLM code itself.
+        _voiceStudioTTS = StateObject(wrappedValue: VoiceStudioTTSService(log: { message in
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            scanner.logLines.append("[\(timestamp)] \(message)")
+        }))
+        // JV AI - end-to-end latency instrumentation (approved pass) -
+        // same isolated pattern. Pure measurement/logging; changes
+        // nothing about ASR/VAD/LLM/TTS/playback behavior. Hooks wired
+        // in .onAppear below, same reasoning as every other hook in this
+        // init() - against self.latencySession, the real persisted
+        // instance.
+        _latencySession = StateObject(wrappedValue: JVLatencySession(log: { message in
+            let timestamp = ISO8601DateFormatter().string(from: Date())
+            scanner.logLines.append("[\(timestamp)] \(message)")
+        }))
+        // JV AI - continuous conversation + barge-in (approved pass) -
+        // same isolated pattern, log-closure-only init. Dependencies
+        // (jvSpeechTest/aiService/voiceStudioTTS/glassesSpeakerTest/
+        // latencySession) are wired in .onAppear below via configure(_:),
+        // not here - see JVConversationController.swift's own header for
+        // why (the established self.xxx-in-.onAppear convention this
+        // project already relies on for every cross-controller hook).
+        _conversationController = StateObject(wrappedValue: JVConversationController(log: { message in
             let timestamp = ISO8601DateFormatter().string(from: Date())
             scanner.logLines.append("[\(timestamp)] \(message)")
         }))
@@ -332,6 +401,93 @@ struct DeviceDetailView: View {
                             .font(.system(size: 10, design: .monospaced))
                             .textSelection(.enabled)
                     }
+                }
+            }
+
+            if scanner.canSendCommands {
+                Section("JV AI — SPEECH TEST (forensic ASR probe)") {
+                    Text("Proves ONLY that real HY-16 microphone audio can become real text via Apple's Speech framework. Requires the Audio Capture/Decode Test section above to already be active (tap START AUDIO CAPTURE there first, so real 0x0A02/0x0A03 decoding is happening) - this section only taps the already-decoded PCM via a new hook and never sends 0x0A02 itself, never touches BLE, and makes no AI/network calls of its own.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    LabeledContent("ASR State", value: jvSpeechTest.state.description)
+                    LabeledContent("AI State", value: conversationController.aiState.description)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("YOU SAID:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(jvSpeechTest.transcript.isEmpty ? "(nothing yet)" : jvSpeechTest.transcript)
+                            .font(.body)
+                            .textSelection(.enabled)
+                    }
+
+                    Text("Continuous conversation mode (approved pass): START begins a conversation that keeps listening through the AI's thinking/speaking phase, so you can interrupt (barge-in) without pressing anything - just start talking. STOP ends the whole conversation.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    HStack(spacing: 12) {
+                        Button(action: { conversationController.startContinuousConversation() }) {
+                            Text("START SPEECH TEST")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(jvSpeechTest.state != .idle)
+
+                        Button(action: { conversationController.stopContinuousConversation() }) {
+                            Text("STOP")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(jvSpeechTest.state != .listening && conversationController.aiState == .idle)
+                    }
+                }
+            }
+
+            Section("TEST GLASSES SPEAKER (PATH A - normal iOS Bluetooth audio)") {
+                Text("Isolated test: iPhone → normal iOS audio system → Bluetooth audio profile → HY-16 speaker. Sends NO CoreBluetooth/BLE command and does not require a BLE connection - only that HY-16 is already Bluetooth-paired/audio-connected at the OS level, the same way Facebook/music audio already reaches it. Not the same thing as the separate, untouched 0x0A03 speaker-downlink experiment below.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                LabeledContent("State", value: glassesSpeakerTest.state.description)
+                LabeledContent("Current output name", value: glassesSpeakerTest.currentOutputPortName)
+                LabeledContent("Current output type", value: glassesSpeakerTest.currentOutputPortType)
+
+                Button(action: { glassesSpeakerTest.testSpeaker() }) {
+                    Text("TEST GLASSES SPEAKER")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(glassesSpeakerTest.state == .speaking)
+            }
+
+            if scanner.canSendCommands {
+                Section("PHASE 0 - Speaker Downlink Test (temporary)") {
+                    Text("Forensic test ONLY - does not touch the proven mic-capture path above. Synthesizes \"Joint Vibe test.\" on-device, encodes it to the same Opus/8kHz-mono/40-byte-frame shape the mic path decodes, and sends it APP->DEVICE as 0x0A03 (documented bidirectional, doc §11.3 / 图3-6-1). Sends no 0x0806. Physically listen to the glasses after tapping.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    LabeledContent("Status", value: downlinkTestStatus)
+
+                    Button(action: {
+                        downlinkTestStatus = "Synthesizing..."
+                        downlinkTest.prepareTestPhrasePayloads { result in
+                            switch result {
+                            case .success(let payloads):
+                                downlinkTestStatus = "Sending \(payloads.count) packet(s)..."
+                                scanner.sendDownlinkTestAudio(payloads: payloads)
+                                downlinkTestStatus = "Sent \(payloads.count) packet(s) - listen to the glasses"
+                            case .failure(let error):
+                                downlinkTestStatus = "FAILED: \(error.localizedDescription)"
+                            }
+                        }
+                    }) {
+                        Text("SEND SPEAKER TEST AUDIO")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
             }
 
@@ -557,6 +713,13 @@ struct DeviceDetailView: View {
                 }
             }
 
+            Section("Log settings") {
+                Toggle("Verbose 0x0A03 packet logging (forensic)", isOn: $scanner.verboseAudioPacketLogging)
+                Text("OFF (default) suppresses the RAW RX/DECODED RX hex dump for routine, CRC-valid mic-audio packets only - all other commands and any CRC error are always logged either way. Turn ON to restore full forensic packet-level logging.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
             if !scanner.logLines.isEmpty {
                 Section("Log") {
                     ForEach(Array(scanner.logLines.enumerated()), id: \.offset) { _, line in
@@ -583,6 +746,38 @@ struct DeviceDetailView: View {
             scanner.onBLEAudioDataPacket = { [weak audioCapture] payload, sequence in
                 audioCapture?.processIncoming0xA03(payload: payload, sequence: sequence)
             }
+            // JV AI - Speech Test hook (approved pass) - same .onAppear
+            // reasoning as above: wired here, not init(), against
+            // self.audioCapture/self.jvSpeechTest, the real persisted
+            // instances. A no-op inside JVSpeechTestController unless a
+            // speech test is actively listening.
+            audioCapture.onDecodedPCMBuffer = { [weak jvSpeechTest] buffer in
+                jvSpeechTest?.receivePCMBuffer(buffer)
+            }
+            // JV AI - continuous conversation + barge-in (approved pass) -
+            // wired here for the same .onAppear reason as every hook
+            // above: against self.xxx, the real persisted instances. This
+            // ONE call replaces the previous ad-hoc onFinalTranscript/
+            // onLatencyCheckpoint closure chain that used to live directly
+            // in this .onAppear block - that logic (routing a successful
+            // LLM reply through VoiceStudio TTS first, falling back to
+            // Apple TTS speak(_:) on failure, and recording every
+            // JVLatencyTracker checkpoint) is now inside
+            // JVConversationController, unchanged in substance, plus the
+            // new barge-in/continuous-listening/turn-generation behavior
+            // this milestone adds. The older, separate "JVPipeline:" ad-
+            // hoc timer (a simpler predecessor added before
+            // JVLatencyTracker/JVLatencySession existed) is retired here -
+            // its job is now done more completely by the still-fully-
+            // intact "=== JV LATENCY BREAKDOWN ===" instrumentation
+            // (JVLatencyTracker.swift, unchanged this pass), not lost.
+            conversationController.configure(
+                jvSpeechTest: jvSpeechTest,
+                aiService: aiService,
+                voiceStudioTTS: voiceStudioTTS,
+                glassesSpeakerTest: glassesSpeakerTest,
+                latencySession: latencySession
+            )
         }
         .onDisappear {
             scanner.disconnect()

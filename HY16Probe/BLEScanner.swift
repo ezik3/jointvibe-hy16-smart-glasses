@@ -125,6 +125,22 @@ final class BLEScanner: NSObject, ObservableObject {
     /// peripheral. The "Take Photo" button is gated on this.
     @Published var canSendCommands: Bool = false
 
+    /// Conversation performance logging mode (approved pass). Defaults to
+    /// false = SUPPRESSED: routine, CRC-valid 0x0A03 mic-audio packets
+    /// (arriving at ~10Hz during active capture) skip their RAW RX/
+    /// DECODED RX hex-dump log lines - confirmed from source to otherwise
+    /// unconditionally append to logLines (a @Published array) on every
+    /// single packet, a real SwiftUI re-render trigger during exactly the
+    /// real-time-sensitive conversation window. Does NOT suppress: any
+    /// other command (0x0805/0x0A02/etc, all low-frequency), any CRC
+    /// MISMATCH on any packet (a real error, always logged), or the
+    /// existing throttled 0x0A03 summary logging (first 5 packets full
+    /// detail + every 20th packet) inside the case 0x0A03 handling below,
+    /// which is completely untouched either way. Toggle true from
+    /// ContentView for forensic debugging - fully reversible, changes no
+    /// decode/CRC/dispatch logic, only which log lines are produced.
+    @Published var verboseAudioPacketLogging: Bool = false
+
     // MARK: Media WiFi state (Pass 1) - populated only from real notify
     // frames the glasses send after 0x090B/on is requested. Nothing here
     // is guessed or auto-filled.
@@ -462,6 +478,177 @@ final class BLEScanner: NSObject, ObservableObject {
         bleAudioControlAckReceived = false
     }
 
+    // MARK: BLE Audio Data downlink (0x0A03, doc §11.3) - Phase 0 speaker
+    // test ONLY. Sends each pre-built payload (from AudioDownlinkTest, an
+    // isolated file that never touches BLE) as its own 0x0A03 NOTIFY frame,
+    // reusing the exact same nextSequenceNumber counter, buildFrame/CRC
+    // logic, and .withoutResponse write type as every other proven send
+    // method above - no new transport behavior, only a new payload source.
+    // Called ONLY from an explicit user tap on the temporary Phase 0 test
+    // button in ContentView - never automatically.
+    //
+    // BLE WRITE-TRANSPORT DIAGNOSTIC PASS (approved, isolated to this test
+    // path only): a prior forensic log proved a genuine AI-dialogue
+    // session was active for every downlink attempt yet zero speaker audio
+    // was heard, and identified that this path never verified whether
+    // CoreBluetooth actually admitted its ~212-byte .withoutResponse
+    // writes - "sent" in the old log only ever meant "we called
+    // writeValue()", never "CoreBluetooth accepted it" or "HY-16 received
+    // it". This pass adds exactly three things, all read-only queries
+    // against public CoreBluetooth API, to make that observable:
+    //   1. peripheral.maximumWriteValueLength(for: .withoutResponse) is
+    //      queried and logged (at connect time, and freshly again before
+    //      every test run) against the actual Data.count of every packet
+    //      we intend to send - never assumed to be 212.
+    //   2. peripheral.canSendWriteWithoutResponse is checked before EVERY
+    //      write. If false, the queue pauses (does not blindly call
+    //      writeValue anyway) and resumes only via the documented
+    //      peripheralIsReady(toSendWriteWithoutResponse:) delegate
+    //      callback below - a simple deterministic index-based queue,
+    //      never a retry loop.
+    //   3. A packet whose actual byte count exceeds the negotiated
+    //      maximum is NOT fragmented (no manufacturer evidence permits
+    //      splitting a 0x0A03 frame) - the test stops immediately with an
+    //      explicit "DOWNLINK BLOCKED" log line instead.
+    // The pre-existing ~30ms pacing is kept, in addition to (not instead
+    // of) the above, exactly as before. The 0x0A03 frame structure, CRC,
+    // sequence numbering, Opus/codec content, and every other proven
+    // command in this file are completely unchanged. Log wording
+    // deliberately says "submitted to CoreBluetooth", never "received by
+    // HY-16" - .withoutResponse gives no delivery confirmation, and this
+    // pass does not claim otherwise.
+
+    private var downlinkQueue: [[UInt8]] = []
+    private var downlinkQueueIndex: Int = 0
+    private var downlinkTestInProgress: Bool = false
+    private var downlinkMaxWriteLength: Int = 0
+    private var downlinkPacketsSubmitted: Int = 0
+    private var downlinkFlowControlPauses: Int = 0
+    private var downlinkFlowControlResumes: Int = 0
+    private var downlinkOversizedCount: Int = 0
+    private var downlinkPacketSizesSeen: [Int] = []
+
+    func sendDownlinkTestAudio(payloads: [[UInt8]]) {
+        guard let peripheral = activePeripheral, writeCharacteristic != nil else {
+            log("sendDownlinkTestAudio() ABORTED - not connected or write characteristic not found yet")
+            return
+        }
+        guard !downlinkTestInProgress else {
+            log("sendDownlinkTestAudio() ABORTED - a downlink test is already in progress (ignoring re-tap until it finishes)")
+            return
+        }
+
+        let maxWriteLength = peripheral.maximumWriteValueLength(for: .withoutResponse)
+        log("BLE WRITE DIAGNOSTIC:")
+        log("maximumWriteValueLength(.withoutResponse) = \(maxWriteLength) bytes")
+
+        downlinkQueue = payloads
+        downlinkQueueIndex = 0
+        downlinkTestInProgress = true
+        downlinkMaxWriteLength = maxWriteLength
+        downlinkPacketsSubmitted = 0
+        downlinkFlowControlPauses = 0
+        downlinkFlowControlResumes = 0
+        downlinkOversizedCount = 0
+        downlinkPacketSizesSeen = []
+
+        log("sendDownlinkTestAudio: sending \(payloads.count) 0x0A03 downlink packet(s)")
+        sendNextDownlinkTestPacket()
+    }
+
+    // Deterministic, index-based queue. Only ever advances when
+    // CoreBluetooth has either accepted a write or explicitly signaled
+    // readiness via peripheralIsReady(toSendWriteWithoutResponse:) below -
+    // never on a blind timer alone. Safe to call redundantly (e.g. if a
+    // pending 30ms tick and a peripheralIsReady callback both land) since
+    // it always re-reads current queue state rather than acting on a
+    // captured index.
+    private func sendNextDownlinkTestPacket() {
+        guard downlinkTestInProgress else { return }
+        guard let peripheral = activePeripheral, let writeChar = writeCharacteristic else {
+            log("sendDownlinkTestAudio: connection lost mid-send at packet \(downlinkQueueIndex + 1)/\(downlinkQueue.count)")
+            finishDownlinkTest(completed: false)
+            return
+        }
+        guard downlinkQueueIndex < downlinkQueue.count else {
+            finishDownlinkTest(completed: true)
+            return
+        }
+
+        let payload = downlinkQueue[downlinkQueueIndex]
+        let seq = nextSequenceNumber
+        let frame = HY16Protocol.buildBLEAudioDataFrame(payload: payload, sequence: seq)
+        let data = Data(frame)
+        downlinkPacketSizesSeen.append(data.count)
+
+        log("DOWNLINK packet \(downlinkQueueIndex + 1)/\(downlinkQueue.count):")
+        log("  size = \(data.count) bytes")
+
+        guard data.count <= downlinkMaxWriteLength else {
+            downlinkOversizedCount += 1
+            log("DOWNLINK BLOCKED:")
+            log("  packet size = \(data.count)")
+            log("  CoreBluetooth maximum = \(downlinkMaxWriteLength)")
+            log("  packet exceeds negotiated write limit - stopping this speaker test now (not fragmenting the 0x0A03 frame; no manufacturer evidence permits splitting it)")
+            finishDownlinkTest(completed: false)
+            return
+        }
+
+        let canSend = peripheral.canSendWriteWithoutResponse
+        log("  canSendWriteWithoutResponse = \(canSend)")
+
+        guard canSend else {
+            downlinkFlowControlPauses += 1
+            log("DOWNLINK: CoreBluetooth is NOT ready for another write - pausing queue at packet \(downlinkQueueIndex + 1)/\(downlinkQueue.count) (pause #\(downlinkFlowControlPauses)), waiting for peripheralIsReady(toSendWriteWithoutResponse:)")
+            return
+        }
+
+        log("RAW TX: \(HY16Protocol.hexString(frame))")
+        log("DECODED TX: 0x0A03 NOTIFY seq=\(seq) — BLE Audio Data (downlink test packet \(downlinkQueueIndex + 1)/\(downlinkQueue.count), \(payload.count) payload bytes)")
+        peripheral.writeValue(data, for: writeChar, type: .withoutResponse)
+        nextSequenceNumber = nextSequenceNumber &+ 1
+        downlinkPacketsSubmitted += 1
+        downlinkQueueIndex += 1
+
+        // Existing ~30ms pacing, kept IN ADDITION to the CoreBluetooth
+        // flow-control check above (not a replacement for it) - it no
+        // longer functions as proof CoreBluetooth could accept the next
+        // write, only as extra spacing in case device-side timing matters.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak self] in
+            self?.sendNextDownlinkTestPacket()
+        }
+    }
+
+    // Called by peripheralIsReady(toSendWriteWithoutResponse:) below AND
+    // by the natural end of the queue - single place all downlink-test
+    // paths converge to log the diagnostic summary and reset local state.
+    private func finishDownlinkTest(completed: Bool) {
+        let sizeDescription: String
+        let distinctSizes = Set(downlinkPacketSizesSeen)
+        if distinctSizes.isEmpty {
+            sizeDescription = "(none built)"
+        } else if distinctSizes.count == 1, let onlySize = distinctSizes.first {
+            sizeDescription = "\(onlySize) bytes (uniform across \(downlinkPacketSizesSeen.count) packet(s))"
+        } else {
+            sizeDescription = downlinkPacketSizesSeen.map { "\($0)" }.joined(separator: ", ") + " bytes"
+        }
+
+        log("=== DOWNLINK BLE DIAGNOSTIC SUMMARY ===")
+        log("maximum write length: \(downlinkMaxWriteLength)")
+        log("packet size(s): \(sizeDescription)")
+        log("packets queued: \(downlinkQueue.count)")
+        log("packets submitted to CoreBluetooth: \(downlinkPacketsSubmitted)")
+        log("flow-control pauses: \(downlinkFlowControlPauses)")
+        log("flow-control resumes: \(downlinkFlowControlResumes)")
+        log("oversized packets: \(downlinkOversizedCount)")
+        log("test completed: \(completed ? "YES" : "NO")")
+        log("NOTE: \"submitted to CoreBluetooth\" does NOT prove HY-16 received these packets - .withoutResponse gives no delivery confirmation.")
+
+        downlinkTestInProgress = false
+        downlinkQueue = []
+        downlinkQueueIndex = 0
+    }
+
     // MARK: File list (Pass 1 - read-only GET, raw text only, no parsing yet)
     //
     // Fetches whatever http://192.168.96.1/api/glass/file-list actually
@@ -787,6 +974,8 @@ extension BLEScanner: CBCentralManagerDelegate {
         canSendCommands = false
         nextSequenceNumber = 0
         log("didConnect -> \(peripheral.identifier.uuidString). Calling discoverServices(nil).")
+        log("BLE WRITE DIAGNOSTIC:")
+        log("maximumWriteValueLength(.withoutResponse) = \(peripheral.maximumWriteValueLength(for: .withoutResponse)) bytes (at connect time - re-queried fresh before every downlink test run, since this can change after MTU negotiation completes)")
         peripheral.discoverServices(nil)
     }
 
@@ -883,6 +1072,19 @@ extension BLEScanner: CBPeripheralDelegate {
         }
     }
 
+    // BLE write-transport diagnostic pass: the documented CoreBluetooth
+    // signal that the .withoutResponse transmit queue has drained and can
+    // accept more writes. Only the downlink-test queue reacts to this
+    // (guarded by downlinkTestInProgress inside sendNextDownlinkTestPacket) -
+    // no other proven send path in this file uses or needs this callback,
+    // since their writes are single small (6-13 byte) one-off commands.
+    func peripheralIsReady(toSendWriteWithoutResponse peripheral: CBPeripheral) {
+        guard downlinkTestInProgress else { return }
+        downlinkFlowControlResumes += 1
+        log("DOWNLINK: peripheralIsReady(toSendWriteWithoutResponse:) fired - CoreBluetooth can accept more writes again (resume #\(downlinkFlowControlResumes)). Resuming queue at packet \(downlinkQueueIndex + 1)/\(downlinkQueue.count).")
+        sendNextDownlinkTestPacket()
+    }
+
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         if let error {
             log("didUpdateValueFor \(characteristic.uuid.uuidString) ERROR: \(error.localizedDescription)")
@@ -890,16 +1092,32 @@ extension BLEScanner: CBPeripheralDelegate {
         }
         guard let value = characteristic.value else { return }
         let bytes = [UInt8](value)
-        log("RAW RX: \(HY16Protocol.hexString(bytes))")
 
         guard let frame = HY16Protocol.decodeFrame(bytes) else {
+            // Parse failures are rare/exceptional - always logged in full
+            // regardless of the performance-logging toggle.
+            log("RAW RX: \(HY16Protocol.hexString(bytes))")
             log("DECODED RX: could not parse as an A5 frame")
             return
+        }
+
+        // Conversation performance logging mode (approved pass) - see
+        // verboseAudioPacketLogging's own doc comment. Only a routine,
+        // CRC-valid 0x0A03 packet is ever suppressed; every other command
+        // and every CRC mismatch (on ANY command, including 0x0A03) is
+        // always logged in full, unchanged from before.
+        let isRoutineAudioPacket = (frame.cmdID == 0x0A03 && frame.crcValid)
+        let shouldLogRawPacket = verboseAudioPacketLogging || !isRoutineAudioPacket
+
+        if shouldLogRawPacket {
+            log("RAW RX: \(HY16Protocol.hexString(bytes))")
         }
         let name = HY16Protocol.commandName(frame.cmdID)
         let typeName = HY16Protocol.typeName(frame.type)
         let crcNote = frame.crcValid ? "CRC OK" : "CRC MISMATCH"
-        log("DECODED RX: 0x\(String(format: "%04X", frame.cmdID)) \(typeName) — \(name) seq=\(frame.sequence) payload=[\(HY16Protocol.hexString(frame.payload))] (\(crcNote))")
+        if shouldLogRawPacket {
+            log("DECODED RX: 0x\(String(format: "%04X", frame.cmdID)) \(typeName) — \(name) seq=\(frame.sequence) payload=[\(HY16Protocol.hexString(frame.payload))] (\(crcNote))")
+        }
 
         if frame.cmdID == 0x0905, frame.payload.count >= 2 {
             let count = UInt16(frame.payload[0]) | (UInt16(frame.payload[1]) << 8)

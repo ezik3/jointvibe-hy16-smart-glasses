@@ -60,6 +60,14 @@ final class AudioCaptureController: ObservableObject {
     private var captureStartDate: Date?
     private var durationTimer: Timer?
 
+    // MARK: JV AI speech-test hook (approved pass). Optional closure, set
+    // by ContentView to JVSpeechTestController.receivePCMBuffer(_:) -
+    // mirrors BLEScanner.onBLEAudioDataPacket's exact pattern one layer
+    // downstream. Fired with the SAME AVAudioPCMBuffer this file's own
+    // decode(chunk:) already produces from the proven Opus decode path -
+    // nothing about that decode path changes. Nil (never set) is a no-op.
+    var onDecodedPCMBuffer: ((AVAudioPCMBuffer) -> Void)?
+
     init(log: @escaping (String) -> Void) {
         self.log = log
         // Evidence-based, not guessed: doc-documented 8kHz mic-uplink
@@ -194,6 +202,9 @@ final class AudioCaptureController: ObservableObject {
             decodedFrameCount += 1
             decodedSampleCount += frameLength
             lastDecoderResult = "OK (\(frameLength) samples)"
+            if frameLength > 0 {
+                onDecodedPCMBuffer?(buffer)
+            }
         } catch {
             decoderErrorCount += 1
             lastDecoderResult = "ERROR: \(error)"
